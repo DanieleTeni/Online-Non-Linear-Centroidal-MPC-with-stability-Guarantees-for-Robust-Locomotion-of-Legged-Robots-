@@ -3,7 +3,8 @@ import dartpy as dart
 import copy
 from utils import *
 import os
-import ismpc
+#import ismpc
+import centroidal_mpc
 import footstep_planner
 import inverse_dynamics as id
 import filter
@@ -28,6 +29,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             'µ': 0.5,
             'N': 100,
             'dof': self.hrp4.getNumDofs(),
+            'mass': self.hrp4.getMass(), #An: Add the mass of the robot as a default param
         }
         self.params['eta'] = np.sqrt(self.params['g'] / self.params['h'])
 
@@ -86,7 +88,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             )
 
         # initialize MPC controller
-        self.mpc = ismpc.Ismpc(
+        self.mpc = centroidal_mpc.Ismpc(
             self.initial, 
             self.footstep_planner, 
             self.params
