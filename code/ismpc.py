@@ -38,7 +38,7 @@ class Ismpc:
     self.zmp_x_mid_param = self.opt.parameter(self.N)
     self.zmp_y_mid_param = self.opt.parameter(self.N)
     self.zmp_z_mid_param = self.opt.parameter(self.N)
-
+    # An: multiple shooting!?
     for i in range(self.N):
       self.opt.subject_to(self.X[:, i + 1] == self.X[:, i] + self.delta * self.f(self.X[:, i], self.U[:, i]))
 

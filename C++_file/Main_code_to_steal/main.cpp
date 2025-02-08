@@ -346,7 +346,7 @@ void runSimulation(bool enableStabilityConstraint, const std::string& outputFile
             mpc.setReferenceTrajectory(comTrajectoryRecedingHorizon, angularMomentumTraj);
             mpc.setContactPhaseList(phaseList);
             std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-            mpc.advance();
+            mpc.advance();// call the CreateController()
             std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
             elapsedTime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
             index++;

@@ -19,9 +19,11 @@ class Ismpc:
     self.A_lip = np.array([[0, 1, 0], [self.eta**2, 0, -self.eta**2], [0, 0, 0]])
     self.B_lip = np.array([[0], [0], [1]])
 
-    # dynamics -- An: lambda is an anonymus function in Python-- cs.vercat stacks these component vertically
+    # dynamics -- An: lambda is an anonymus function in Python, input dim depends on the user-- cs.vercat stacks these component vertically
     # An: x= [pcom_x,pcom_y,pcom_z, vcom_x,vcom_y,vcom_z, hw_x,hw_y,hw_z] hw:angular momentum
     # An: TBD: How to treat the disturbance force theta, the cross product calculation
+    # An: We do not need to include the disturbance model into the mpc solver
+    
     self.f = lambda x, u: cs.vertcat(
         x[3:6] ,
         1/self.mass @ u[0:3]+np.array([0, 0,- params['g']]),
@@ -33,14 +35,42 @@ class Ismpc:
     p_opts = {"expand": True}
     s_opts = {"max_iter": 1000, "verbose": False}
     self.opt.solver("osqp", p_opts, s_opts)
-
+    
+    #An: Create optimization variable
     self.U = self.opt.variable(3, self.N)
-    self.X = self.opt.variable(9, self.N + 1)
+    self.CoM = self.opt.variable(3, self.N + 1)
+    self.dCoM = self.opt.variable(3, self.N + 1)
+    self.dhw = self.opt.variable(3, self.N + 1)
+    self.thetahat = self.opt.variable(3, self.N + 1)
+    self.pos_contact_left= self.opt.variable(3, self.N + 1)
+    self.pos_contact_right= self.opt.variable(3, self.N + 1)
+    self.vel_contact_left= self.opt.variable(3, self.N + 1)
+    self.vel_contact_right= self.opt.variable(3, self.N + 1)
 
+    #An: Concatenate them in to the state matrix (3*num_state, self.N+1)
+    self.state= cs.vercat(self.CoM,self.dCoM,self.dhw,self.thetahat,
+                          self.pos_contact_left,self.pos_contact_right,self.vel_contact_left,self.vel_contact_right)
+
+    #An: Create optimization params that change during simulation time
     self.x0_param = self.opt.parameter(9)
     self.zmp_x_mid_param = self.opt.parameter(self.N)
     self.zmp_y_mid_param = self.opt.parameter(self.N)
     self.zmp_z_mid_param = self.opt.parameter(self.N)
+
+    self.com_ref = self.opt.parameter(3,self.N)
+    self.v_com_ref = self.opt.parameter(3,self.N)
+
+    # An: to track the contact status of the left and right foot 1 means in contact
+    self.contact_left = self.opt.paremeter(1)
+    self.contact_right = self.opt.paremeter(1)
+    # An: Left contact force And right contact force
+    self.force_contact_left = self.opt.paremeter(3,self.N)
+    self.force_contact_right = self.opt.paremeter(3,self.N)
+    # An: Setup multiple shooting
+    for i in range(self.N):
+      self.opt.subject_to(self.state[:,i+1]== self.state[:,i]+
+                           self.delta*self.centroidal_dynamic(self.state,self.com_ref,self.v_com_ref,self.contact_left,self.contact_right,self.force_contact_left,self.force_contact_right))
+    
 
     for i in range(self.N):
       self.opt.subject_to(self.X[:, i + 1] == self.X[:, i] + self.delta * self.f(self.X[:, i], self.U[:, i]))
@@ -124,3 +154,30 @@ class Ismpc:
       mc_y += self.sigma(time_array, ds_start_time, fs_end_time) * (fs_target_pos[1] - fs_current_pos[1])
 
     return mc_x, mc_y, np.zeros(self.N)
+  #An's function: Compute the centroidal dynamic
+  # Input:
+  # 1. state: com, dcom, angularmomentum, thetahat: casadi opt.variable | contact[pos: casadi opt.variable,onGround:logic]
+  #(here I am writing for contact with one vertex --> develop later for multiple vertex)
+  # 2. input: contact force: casadi opt.variable
+  # 3. input: CoM ref, vCoM ref
+  # Output:
+  # State derivative formular for multiple shooting  
+  def centroidal_dynamic(self, state, CoM_ref, vCoM_ref,contact_lef, contact_right, force_left, force_right,input):
+    k1=1
+    mass = self.params('mass')
+    g = np.array([0, 0,- self.params['g']])
+    com=state[0:3]
+    pos_left= state[12:15]
+    pos_right= state[15:18]
+    vel_left= state[18:21]
+    vel_right= state[21:24]
+    #size=self.N
+    # Centroidal dynamic with disturbance estimator theta hat, contact dynamics
+    dcom=state[3:6]#state[3],state[4],state[5]
+    ddcom= 1/mass*(g+force_left*contact_lef+force_right*contact_right)
+    dhw= np.cross(com-pos_left)*force_left+np.cross(com-pos_right)*force_right
+    v_left= (1-contact_lef)*vel_left
+    v_right= (1-contact_right)*vel_right
+    dthetahat= k1*(com-CoM_ref)+dcom-vCoM_ref
+
+    return cs.vertcart(dcom,ddcom,dhw,dthetahat,v_left,v_right)
