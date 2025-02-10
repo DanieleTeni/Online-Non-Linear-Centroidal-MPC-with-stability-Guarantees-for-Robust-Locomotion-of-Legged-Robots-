@@ -28,6 +28,7 @@ class Ismpc:
     
     #An: Create optimization variable
     self.U = self.opt.variable(3, self.N)
+    
     self.CoM = self.opt.variable(3, self.N + 1)
     self.dCoM = self.opt.variable(3, self.N + 1)
     self.dhw = self.opt.variable(3, self.N + 1)
@@ -37,12 +38,16 @@ class Ismpc:
     self.vel_contact_left= self.opt.variable(3, self.N + 1)
     self.vel_contact_right= self.opt.variable(3, self.N + 1)
 
+    # An: Left contact force And right contact force: Components of control input
+    self.force_contact_left = self.opt.variable(3,self.N)
+    self.force_contact_right = self.opt.variable(3,self.N)
+
     #An: Concatenate them in to the state matrix (3*num_state, self.N+1)
     self.state= cs.vercat(self.CoM,self.dCoM,self.dhw,self.thetahat,
                           self.pos_contact_left,self.pos_contact_right,self.vel_contact_left,self.vel_contact_right)
 
     #An: Create optimization params that change during simulation time
-    self.x0_param = self.opt.parameter(9)
+    self.x0_param = self.opt.parameter(24)
     self.zmp_x_mid_param = self.opt.parameter(self.N)
     self.zmp_y_mid_param = self.opt.parameter(self.N)
     self.zmp_z_mid_param = self.opt.parameter(self.N)
@@ -51,11 +56,9 @@ class Ismpc:
     self.v_com_ref = self.opt.parameter(3,self.N)
 
     # An: to track the contact status of the left and right foot 1 means in contact
-    self.contact_left = self.opt.paremeter(1)
-    self.contact_right = self.opt.paremeter(1)
-    # An: Left contact force And right contact force
-    self.force_contact_left = self.opt.paremeter(3,self.N)
-    self.force_contact_right = self.opt.paremeter(3,self.N)
+    self.contact_left = self.opt.parameter(1)
+    self.contact_right = self.opt.parameter(1)
+
     # An: Setup multiple shooting
     for i in range(self.N):
       self.opt.subject_to(self.state[:,i+1]== self.state[:,i]+
@@ -97,13 +100,35 @@ class Ismpc:
                       'zmp': {'pos': np.zeros(3), 'vel': np.zeros(3)}}
 
   def solve(self, current, t):
-    self.x = np.array([current['com']['pos'][0], current['com']['vel'][0], current['zmp']['pos'][0],
-                       current['com']['pos'][1], current['com']['vel'][1], current['zmp']['pos'][1],
-                       current['com']['pos'][2], current['com']['vel'][2], current['zmp']['pos'][2]])
+    self.x = np.array([current['com']['pos'][0],       current['com']['pos'][1],       current['com']['pos'][2],
+                       current['com']['vel'][0],       current['com']['vel'][1],       current['com']['vel'][2],
+                       current['hw']['val'][0],        current['hw']['val'][1],        current['hw']['val'][2],
+                       current['theta_hat']['val'][0], current['theta_hat']['val'][1], current['theta_hat']['val'][2],
+                       current['lfoot']['pos'][0],     current['lfoot']['pos'][1],     current['lfoot']['pos'][2],
+                       current['lfoot']['vel'][0],     current['lfoot']['vel'][1],     current['lfoot']['vel'][2],
+                       current['rfoot']['pos'][0],     current['rfoot']['pos'][1],     current['rfoot']['pos'][2],
+                       current['rfoot']['vel'][0],     current['rfoot']['vel'][1],     current['rfoot']['vel'][2]])
     
     mc_x, mc_y, mc_z = self.generate_moving_constraint(t)
 
+    #Extract the status of the contacts
+    # reformulate the contact phase from contact planner list
+    t= self.time
+    contact_status = self.footstep_planner.get_phase_at_time(t)
+    #Update contact status to the model constrains
+    #'ds'
+    self.opt.set_value(self.contact_left, 1)
+    self.opt.set_value(self.contact_right, 1)
+    if contact_status == 'ss':
+      self.opt.set_value(self.contact_left, 0)
+      self.opt.set_value(self.contact_right, 1)
+      contact_status = self.footstep_planner.plan[self.footstep_planner.get_step_index_at_time(t)]['foot_id']
+      if contact_status=='lfoot':
+        self.opt.set_value(self.contact_left, 1)
+        self.opt.set_value(self.contact_right, 0)
+
     # solve optimization problem
+    # Remember to update also the position of foot contact from the simulator
     self.opt.set_value(self.x0_param, self.x)
     self.opt.set_value(self.zmp_x_mid_param, mc_x)
     self.opt.set_value(self.zmp_y_mid_param, mc_y)
@@ -128,7 +153,7 @@ class Ismpc:
     if contact == 'ss':
       contact = self.footstep_planner.plan[self.footstep_planner.get_step_index_at_time(t)]['foot_id']
 
-    return self.lip_state, contact
+    return self.lip_state, contact_pos
   
   def generate_moving_constraint(self, t):
     mc_x = np.full(self.N, (self.initial['lfoot']['pos'][3] + self.initial['rfoot']['pos'][3]) / 2.)
@@ -165,7 +190,7 @@ class Ismpc:
     # Centroidal dynamic with disturbance estimator theta hat, contact dynamics
     dcom=state[3:6]#state[3],state[4],state[5]
     ddcom= 1/mass*(g+force_left*contact_lef+force_right*contact_right)
-    dhw= np.cross(com-pos_left)*force_left+np.cross(com-pos_right)*force_right
+    dhw= np.cross(com-pos_left)*force_left*contact_lef+np.cross(com-pos_right)*force_right*contact_right
     v_left= (1-contact_lef)*vel_left
     v_right= (1-contact_right)*vel_right
     dthetahat= k1*(com-CoM_ref)+dcom-vCoM_ref

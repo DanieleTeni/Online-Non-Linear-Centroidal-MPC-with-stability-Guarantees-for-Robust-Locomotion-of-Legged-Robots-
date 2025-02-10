@@ -53,14 +53,15 @@ class FootstepPlanner:
             
             # switch support foot
             support_foot = 'rfoot' if support_foot == 'lfoot' else 'lfoot'
-
+            print(self.plan[j]['foot_id'])   
+    #An: get the number of step
     def get_step_index_at_time(self, time):
         t = 0
         for i in range(len(self.plan)):
             t += self.plan[i]['ss_duration'] + self.plan[i]['ds_duration']
             if t > time: return i
         return None
-
+    #An: get the start time of the step i
     def get_start_time(self, step_index):
         t = 0
         for i in range(step_index):
