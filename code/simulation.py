@@ -10,6 +10,7 @@ import inverse_dynamics as id
 import filter
 import foot_trajectory_generator as ftg
 from logger import Logger
+import new
 
 class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
     def __init__(self, world, hrp4):
@@ -100,6 +101,11 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             self.footstep_planner, 
             self.params
             )
+        
+        self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner)  
+        #self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner,1)  FOR SEE GRAHP
+        
+        
 
         # initialize kalman filter
         A = np.identity(3) + self.params['world_time_step'] * self.mpc.A_lip

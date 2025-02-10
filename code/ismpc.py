@@ -2,7 +2,7 @@ import numpy as np
 import casadi as cs
 
 class Ismpc:
-  def __init__(self, initial, footstep_planner, params):
+  def __init__(self, initial, footstep_planner, params,reference):
     # parameters
     self.params = params
     self.N = params['N']
@@ -13,6 +13,10 @@ class Ismpc:
     self.initial = initial
     self.footstep_planner = footstep_planner
     self.sigma = lambda t, t0, t1: np.clip((t - t0) / (t1 - t0), 0, 1) # piecewise linear sigmoidal function
+
+
+    self.ref_x=reference['pos_x']
+    self.ref_y = reference['pos_y']
 
     # lip model matrices
     self.A_lip = np.array([[0, 1, 0], [self.eta**2, 0, -self.eta**2], [0, 0, 0]])
@@ -38,14 +42,20 @@ class Ismpc:
     self.zmp_x_mid_param = self.opt.parameter(self.N)
     self.zmp_y_mid_param = self.opt.parameter(self.N)
     self.zmp_z_mid_param = self.opt.parameter(self.N)
-    # An: multiple shooting!?
+
+    self.ref_x_param=self.opt.parameter(self.N)
+    self.ref_y_param=self.opt.parameter(self.N)
+
+
     for i in range(self.N):
       self.opt.subject_to(self.X[:, i + 1] == self.X[:, i] + self.delta * self.f(self.X[:, i], self.U[:, i]))
 
     cost = cs.sumsqr(self.U) + \
            100 * cs.sumsqr(self.X[2, 1:].T - self.zmp_x_mid_param) + \
            100 * cs.sumsqr(self.X[5, 1:].T - self.zmp_y_mid_param) + \
-           100 * cs.sumsqr(self.X[8, 1:].T - self.zmp_z_mid_param)
+           100 * cs.sumsqr(self.X[8, 1:].T - self.zmp_z_mid_param) + \
+           100 * cs.sumsqr(self.X[[0], 1:] - self.ref_x_param.T) + \
+           100 * cs.sumsqr(self.X[[3], 1:] - self.ref_y_param.T)
 
     self.opt.minimize(cost)
 
@@ -78,6 +88,9 @@ class Ismpc:
                        current['com']['pos'][1], current['com']['vel'][1], current['zmp']['pos'][1],
                        current['com']['pos'][2], current['com']['vel'][2], current['zmp']['pos'][2]])
     
+    ref_x_param = self.ref_x[t+1:t+1+self.N]  
+    ref_y_param = self.ref_y[t+1:t+1+self.N] 
+    
     mc_x, mc_y, mc_z = self.generate_moving_constraint(t)
 
     # solve optimization problem
@@ -85,6 +98,8 @@ class Ismpc:
     self.opt.set_value(self.zmp_x_mid_param, mc_x)
     self.opt.set_value(self.zmp_y_mid_param, mc_y)
     self.opt.set_value(self.zmp_z_mid_param, mc_z)
+    self.opt.set_value(self.ref_x_param, ref_x_param)  
+    self.opt.set_value(self.ref_y_param, ref_y_param) 
 
     sol = self.opt.solve()
     self.x = sol.value(self.X[:,1])
@@ -92,6 +107,7 @@ class Ismpc:
 
     self.opt.set_initial(self.U, sol.value(self.U))
     self.opt.set_initial(self.X, sol.value(self.X))
+    
 
     # create output LIP state
     self.lip_state['com']['pos'] = np.array([self.x[0], self.x[3], self.x[6]])
