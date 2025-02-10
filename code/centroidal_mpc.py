@@ -19,17 +19,7 @@ class Ismpc:
     self.A_lip = np.array([[0, 1, 0], [self.eta**2, 0, -self.eta**2], [0, 0, 0]])
     self.B_lip = np.array([[0], [0], [1]])
 
-    # dynamics -- An: lambda is an anonymus function in Python, input dim depends on the user-- cs.vercat stacks these component vertically
-    # An: x= [pcom_x,pcom_y,pcom_z, vcom_x,vcom_y,vcom_z, hw_x,hw_y,hw_z] hw:angular momentum
-    # An: TBD: How to treat the disturbance force theta, the cross product calculation
-    # An: We do not need to include the disturbance model into the mpc solver
-    
-    self.f = lambda x, u: cs.vertcat(
-        x[3:6] ,
-        1/self.mass @ u[0:3]+np.array([0, 0,- params['g']]),
-      self.A_lip @ x[6:9] + self.B_lip @ u[2] + np.array([0, - params['g'], 0]),
-    )
-
+  
     # optimization problem
     self.opt = cs.Opti('conic')
     p_opts = {"expand": True}
@@ -72,8 +62,8 @@ class Ismpc:
                            self.delta*self.centroidal_dynamic(self.state,self.com_ref,self.v_com_ref,self.contact_left,self.contact_right,self.force_contact_left,self.force_contact_right))
     
 
-    for i in range(self.N):
-      self.opt.subject_to(self.X[:, i + 1] == self.X[:, i] + self.delta * self.f(self.X[:, i], self.U[:, i]))
+    #for i in range(self.N):
+      #self.opt.subject_to(self.X[:, i + 1] == self.X[:, i] + self.delta * self.f(self.X[:, i], self.U[:, i]))
 
     cost = cs.sumsqr(self.U) + \
            100 * cs.sumsqr(self.X[2, 1:].T - self.zmp_x_mid_param) + \
