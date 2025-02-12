@@ -30,7 +30,8 @@ def references(foot_tra,planner,SHOW_PLOT=1):
          co_x = quintic_spline(knot_x)  # Get optimal coefficients from solver
          co_x = np.array(co_x.full()) 
          co_y = quintic_spline(knot_y)  # Get optimal coefficients from solver
-         co_y = np.array(co_y.full()) 
+         co_y = np.array(co_y.full())
+      
         #plot_spline(self.knot_x)
         #plot_spline(self.knot_y)
          ref_pos_x=built_the_reference(knot_x,sequence,co_x)
@@ -52,6 +53,12 @@ def references(foot_tra,planner,SHOW_PLOT=1):
          
          ref_acc_y=built_the_acceleration(knot_y,sequence,co_y)
          ref_acc_y = np.concatenate(ref_acc_y).tolist()
+
+         ref_pos_z = np.full(len(ref_pos_x),0.72)
+         ref_vel_z = np.zeros(len(ref_pos_x))
+         ref_acc_z = np.zeros(len(ref_pos_x))
+
+
          if SHOW_PLOT == 0 :
            easy_plot(ref_pos_x,"ref_pos_x")
            easy_plot(ref_vel_x,"ref_velocity_x")
@@ -66,7 +73,11 @@ def references(foot_tra,planner,SHOW_PLOT=1):
                    "acc_x": ref_acc_x,
                     "pos_y": ref_pos_y,
                     "vel_y": ref_vel_y,
-                    "acc_y": ref_acc_y
+                    "acc_y": ref_acc_y,
+                    "pos_z": ref_pos_z,
+                    "vel_z": ref_vel_z,
+                    "acc_z": ref_acc_z
+
                     }
          return ref
 

@@ -26,14 +26,16 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             'ss_duration': 70,
             'ds_duration': 30,
             'world_time_step': world.getTimeStep(),
-            'first_swing': 'lfoot',
+            'first_swing': 'rfoot',
             'µ': 0.5,
             'N': 100,
             'dof': self.hrp4.getNumDofs(),
             'mass': self.hrp4.getMass(), #An: Add the mass of the robot as a default param
         }
         self.params['eta'] = np.sqrt(self.params['g'] / self.params['h'])
-        
+        print("time_step:")
+        print(self.params['world_time_step'])
+              
         # robot links
         self.lsole = hrp4.getBodyNode('l_sole')
         self.rsole = hrp4.getBodyNode('r_sole')
@@ -70,6 +72,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.initial = self.retrieve_state()
         self.contact = 'lfoot' if self.params['first_swing'] == 'rfoot' else 'rfoot' # there is a dummy footstep
         self.desired = copy.deepcopy(self.initial)
+        self.rb_desired = copy.deepcopy(self.initial)
 
         # selection matrix for redundant dofs
         redundant_dofs = [ \
@@ -98,9 +101,22 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             )
         
         self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner,1)  
+        print("ref_length:")
+        #print(len(self.ref['pos_x']))
         #self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner,1)  FOR SEE GRAHP
         
              # initialize MPC controller
+        self.contact_ref= self.footstep_planner.contacts_ref
+        print("contact Ref")
+        print(self.contact_ref['contact_left'][199])
+        print(self.contact_ref['contact_left'][201])
+        print(self.contact_ref['contact_right'][199])
+        print(self.contact_ref['contact_right'][300])
+        #print(self.contact_ref['contact_right'][199].shape[1])       
+        print("foot_step_plan")
+        for i in range(len(self.footstep_planner.plan)):
+            print(self.footstep_planner.plan[i])
+            print()
         self.mpc = ismpc.Ismpc(
             self.initial, 
             self.footstep_planner, 
@@ -108,6 +124,12 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             self.ref
             )
 
+        self.centroidal_mpc=centroidal_mpc.centroidal_mpc(
+            self.initial, 
+            self.footstep_planner, 
+            self.params,
+            self.ref
+        )
         # initialize kalman filter
         A = np.identity(3) + self.params['world_time_step'] * self.mpc.A_lip
         B = self.params['world_time_step'] * self.mpc.B_lip
@@ -157,12 +179,19 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
 
         # get references using mpc SOLVE THE MPC
         lip_state, contact = self.mpc.solve(self.current, self.time)
-
-        self.desired['com']['pos'] = lip_state['com']['pos']
-        self.desired['com']['vel'] = lip_state['com']['vel']
+        robot_state, robot_contact= self.centroidal_mpc.solve(self.current, self.time)
+        #lip_state, contact = self.centroidal_mpc.solve(self.current, self.time)
+        self.desired['com']['pos'] = robot_state['com']['pos']
+        self.desired['com']['vel'] = robot_state['com']['vel']
         self.desired['com']['acc'] = lip_state['com']['acc']
         self.desired['zmp']['pos'] = lip_state['zmp']['pos']
         self.desired['zmp']['vel'] = lip_state['zmp']['vel']
+
+        # self.rb_desired['com']['pos'] = robot_state['com']['pos']
+        # self.rb_desired['com']['vel'] = robot_state['com']['vel']
+        # self.rb_desired['com']['acc'] = lip_state['com']['acc']
+        # self.rb_desired['zmp']['pos'] = lip_state['zmp']['pos']
+        # self.rb_desired['zmp']['vel'] = lip_state['zmp']['vel']
 
         # get foot trajectories
         feet_trajectories = self.foot_trajectory_generator.generate_feet_trajectories_at_time(self.time)
@@ -185,8 +214,14 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         # log and plot
         self.logger.log_data(self.current, self.desired)
         self.logger.update_plot(self.time)
-
-        self.time += 1
+        # print("step index:")
+        # print(self.footstep_planner.get_step_index_at_time(self.time))
+        # print("step phase:")
+        # print(self.footstep_planner.get_phase_at_time(self.time))
+        #print(self.footstep_planner.get_start_time(self.footstep_planner.get_step_index_at_time(self.time)))
+        self.time += 1# the clock that counts the time
+        print(self.time)
+  
 
     def retrieve_state(self):
         # com and torso pose (orientation and position)

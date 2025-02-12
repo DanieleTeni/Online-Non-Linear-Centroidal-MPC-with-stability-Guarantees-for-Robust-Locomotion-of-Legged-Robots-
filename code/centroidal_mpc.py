@@ -1,145 +1,224 @@
 import numpy as np
 import casadi as cs
 
-class Ismpc:
-  def __init__(self, initial, footstep_planner, params):
+class centroidal_mpc:
+  def __init__(self, initial, footstep_planner, params, CoM_ref):
     # parameters
     self.params = params
-    self.N = params['N']
+    self.N = params['N']-90
     self.delta = params['world_time_step']
     self.h = params['h']
     self.eta = params['eta']
     self.foot_size = params['foot_size']
     self.mass = params['mass']
+    self.g = params['g']
     self.initial = initial
     self.footstep_planner = footstep_planner
     self.sigma = lambda t, t0, t1: np.clip((t - t0) / (t1 - t0), 0, 1) # piecewise linear sigmoidal function
+    self.k1=0.1
+    self.k2=0.5
 
     # lip model matrices
-    self.A_lip = np.array([[0, 1, 0], [self.eta**2, 0, -self.eta**2], [0, 0, 0]])
-    self.B_lip = np.array([[0], [0], [1]])
+    # self.A_lip = np.array([[0, 1, 0], [self.eta**2, 0, -self.eta**2], [0, 0, 0]])
+    # self.B_lip = np.array([[0], [0], [1]])
 
-  
-    # optimization problem
+    #An: Get the CoM_ref data from Daniele --> thanks
+    #self.CoM_ref_planner=CoM_ref
+
+    self.pos_com_ref_x= CoM_ref['pos_x']
+    self.pos_com_ref_y= CoM_ref['pos_y']
+    self.pos_com_ref_z= CoM_ref['pos_z']
+
+    self.vel_com_ref_x= CoM_ref['vel_x']
+    self.vel_com_ref_y= CoM_ref['vel_y']
+    self.vel_com_ref_z= CoM_ref['vel_z']
+
+    self.acc_com_ref_x= CoM_ref['acc_x']
+    self.acc_com_ref_y= CoM_ref['acc_y']
+    self.acc_com_ref_z= CoM_ref['acc_z']
+    print("shape_com:")
+    print(self.acc_com_ref_z[300])
+    print(self.acc_com_ref_z.shape)
+    #An: Get all the foot step ref from foot step planner over time stamp
+    self.pos_contact_ref_l= footstep_planner.contacts_ref['contact_left']
+    self.pos_contact_ref_r= footstep_planner.contacts_ref['contact_right']
+    print("shape_contact:")
+    print(self.pos_contact_ref_l)
+    
+    with open("pos_contact_ref_l", "w") as file:
+      file.writelines(" \n".join(map(str, self.pos_contact_ref_l)))
+
+    #print(self.pos_contact_ref_l.shape)
+
+    #print(CoM_ref)
+    # optimization problem setup
     self.opt = cs.Opti('conic')
     p_opts = {"expand": True}
     s_opts = {"max_iter": 1000, "verbose": False}
+    
     self.opt.solver("osqp", p_opts, s_opts)
     
-    #An: Create optimization variable
-    self.U = self.opt.variable(3, self.N)
     
-    self.CoM = self.opt.variable(3, self.N + 1)
-    self.dCoM = self.opt.variable(3, self.N + 1)
-    self.dhw = self.opt.variable(3, self.N + 1)
-    self.thetahat = self.opt.variable(3, self.N + 1)
-    self.pos_contact_left= self.opt.variable(3, self.N + 1)
-    self.pos_contact_right= self.opt.variable(3, self.N + 1)
-    self.vel_contact_left= self.opt.variable(3, self.N + 1)
-    self.vel_contact_right= self.opt.variable(3, self.N + 1)
+  #An: Create optimization variable: prefix "opti_" denotes as symbolic variable
+    # An: Left vel And right vel: Components of control input -> Decide by mpc
+    self.opti_vel_contact_l= self.opt.variable(3, self.N)
+    self.opti_vel_contact_r= self.opt.variable(3, self.N)
+    # An: Left contact force And right contact force: Components of control input -> Decide by mpc
+    self.opti_force_contact_l = self.opt.variable(3,self.N)
+    self.opti_force_contact_r = self.opt.variable(3,self.N)
 
-    # An: Left contact force And right contact force: Components of control input
-    self.force_contact_left = self.opt.variable(3,self.N)
-    self.force_contact_right = self.opt.variable(3,self.N)
+    self.U = cs.vertcat(self.opti_force_contact_l,self.opti_force_contact_r,
+                        self.opti_vel_contact_l,self.opti_vel_contact_r)
 
+    #Define the state, centroidal dynamic model. thetahat plays a role as an observer
+    self.opti_CoM = self.opt.variable(3, self.N + 1)
+    self.opti_dCoM = self.opt.variable(3, self.N + 1)
+    self.opti_hw = self.opt.variable(3, self.N + 1)
+    self.opti_thetahat = self.opt.variable(3, self.N + 1)
+    self.opti_pos_contact_l= self.opt.variable(3, self.N + 1)
+    self.opti_pos_contact_r= self.opt.variable(3, self.N + 1)
+    
     #An: Concatenate them in to the state matrix (3*num_state, self.N+1)
-    self.state= cs.vercat(self.CoM,self.dCoM,self.dhw,self.thetahat,
-                          self.pos_contact_left,self.pos_contact_right,self.vel_contact_left,self.vel_contact_right)
+    self.opti_state= cs.vertcat(self.opti_CoM,self.opti_dCoM,self.opti_hw,self.opti_thetahat,
+                          self.opti_pos_contact_l,self.opti_pos_contact_r)
 
-    #An: Create optimization params that change during simulation time
-    self.x0_param = self.opt.parameter(24)
-    self.zmp_x_mid_param = self.opt.parameter(self.N)
-    self.zmp_y_mid_param = self.opt.parameter(self.N)
-    self.zmp_z_mid_param = self.opt.parameter(self.N)
+  #An: Create optimization params that change during simulation time
+    #An Initial state at the beginning of the mpc horizion
+    self.opti_x0_param = self.opt.parameter(18) # update every step based on the current value obtained by the simulator (column vector)
+    
+    #An: Reference Com trj that is a C2 function
+    self.opti_com_ref = self.opt.parameter(3*3,self.N) #including pos x,y,z, vel x,y,z, acc x,y,z ref, update every step based on the pre-planner
+    #An: Reference contact points, taken from the footstep planner
+    self.opti_pos_contact_l_ref = self.opt.parameter(3,self.N)
+    self.opti_pos_contact_r_ref = self.opt.parameter(3,self.N)
+    
+    # self.v_com_ref = self.opt.parameter(3,self.N)
+    # self.acc_com_ref = self.opt.parameter(3,self.N)
 
-    self.com_ref = self.opt.parameter(3,self.N)
-    self.v_com_ref = self.opt.parameter(3,self.N)
+    #An: to track the contact status of the left and right foot 1 means in contact
+    # If the horizon of mpc N=100 then the contact phase will not change it this horizon because ds+ss>=100
+    # If N>100, contact phase has changed, need more number of param to capture that change
+    # The change in the contact phase inside the mpc horizon will affect the dynamic constraint
+    self.opti_contact_left = self.opt.parameter(1)
+    self.opti_contact_right = self.opt.parameter(1)
 
-    # An: to track the contact status of the left and right foot 1 means in contact
-    self.contact_left = self.opt.parameter(1)
-    self.contact_right = self.opt.parameter(1)
-
-    # An: Setup multiple shooting
+    #An: Setup multiple shooting:
+    #An: Dynamic constraints
+    self.opt.subject_to(self.opti_state[:,0]==self.opti_x0_param)
     for i in range(self.N):
-      self.opt.subject_to(self.state[:,i+1]== self.state[:,i]+
-                           self.delta*self.centroidal_dynamic(self.state,self.com_ref,self.v_com_ref,self.contact_left,self.contact_right,self.force_contact_left,self.force_contact_right))
+      self.opt.subject_to(self.opti_state[:,i+1]== self.opti_state[:,i]+
+                           self.delta*self.centroidal_dynamic(self.opti_state[:,i],self.opti_com_ref[:,i],self.opti_contact_left,self.opti_contact_right,self.U[:,i]))
+    
+    #An: Formulate the change coordinate
+    z1= self.opti_CoM[:,1:]-self.opti_com_ref[0:3,:]
+    z2= self.k1*z1+self.opti_dCoM[:,1]-self.opti_com_ref[3:6,:]
+    
+    force_sum = self.opti_force_contact_l+self.opti_force_contact_r
+    gravity = cs.GenDM_zeros(3)
+    gravity[2]=-self.g
+    #An: Adaptive force u_n
+    u_n= self.k1*self.k1*z1-(self.k1+self.k2)*z2- gravity +self.opti_com_ref[6:9,:]-self.opti_thetahat[:,1:]
+
+    #An: Lyapunov stability constrains
+    for i in range(self.N):
+      self.opt.subject_to(-z1[:,i].T@(self.k1*z1[:,i])-z2[:,i].T@(self.k2*z2[:,i])+z1[:,i].T@z2[:,i]+z2[:,i].T@(force_sum-u_n)<=0.0)
+
+    #An: angular momentum constraint:
+    for i in range(self.N):
+      self.opt.subject_to(self.opti_hw[:,i].T@self.opti_hw[:,i]<=0.1)
     
 
-    #for i in range(self.N):
-      #self.opt.subject_to(self.X[:, i + 1] == self.X[:, i] + self.delta * self.f(self.X[:, i], self.U[:, i]))
 
-    cost = cs.sumsqr(self.U) + \
-           100 * cs.sumsqr(self.X[2, 1:].T - self.zmp_x_mid_param) + \
-           100 * cs.sumsqr(self.X[5, 1:].T - self.zmp_y_mid_param) + \
-           100 * cs.sumsqr(self.X[8, 1:].T - self.zmp_z_mid_param)
+    
+    # Define the cost function
+    # still lack of the components to minimize the deviation of forces at the foot vertices (aka foot corners)
+    cost = 10*cs.sumsqr(self.opti_hw[:,1:]) + \
+           1*cs.sumsqr(self.opti_CoM[:,1:]-self.opti_com_ref[0:3,:])+\
+           10*cs.sumsqr(self.opti_pos_contact_l[:,1:]-self.opti_pos_contact_l_ref)+\
+           10*cs.sumsqr(self.opti_pos_contact_r[:,1:]-self.opti_pos_contact_r_ref)
+           
 
     self.opt.minimize(cost)
 
-    # zmp constraints
-    self.opt.subject_to(self.X[2, 1:].T <= self.zmp_x_mid_param + self.foot_size / 2.)
-    self.opt.subject_to(self.X[2, 1:].T >= self.zmp_x_mid_param - self.foot_size / 2.)
-    self.opt.subject_to(self.X[5, 1:].T <= self.zmp_y_mid_param + self.foot_size / 2.)
-    self.opt.subject_to(self.X[5, 1:].T >= self.zmp_y_mid_param - self.foot_size / 2.)
-    self.opt.subject_to(self.X[8, 1:].T <= self.zmp_z_mid_param + self.foot_size / 2.)
-    self.opt.subject_to(self.X[8, 1:].T >= self.zmp_z_mid_param - self.foot_size / 2.)
-
-    # initial state constraint
-    self.opt.subject_to(self.X[:, 0] == self.x0_param)
-
-    # stability constraint with periodic tail
-    self.opt.subject_to(self.X[1, 0     ] + self.eta * (self.X[0, 0     ] - self.X[2, 0     ]) == \
-                        self.X[1, self.N] + self.eta * (self.X[0, self.N] - self.X[2, self.N]))
-    self.opt.subject_to(self.X[4, 0     ] + self.eta * (self.X[3, 0     ] - self.X[5, 0     ]) == \
-                        self.X[4, self.N] + self.eta * (self.X[3, self.N] - self.X[5, self.N]))
-    self.opt.subject_to(self.X[7, 0     ] + self.eta * (self.X[6, 0     ] - self.X[8, 0     ]) == \
-                        self.X[7, self.N] + self.eta * (self.X[6, self.N] - self.X[8, self.N]))
-
-    # state
-    self.x = np.zeros(9)
+    #An: initialize the state space to collect the real time state value from the simulator
+    self.current_state = np.zeros(3*6)
     self.lip_state = {'com': {'pos': np.zeros(3), 'vel': np.zeros(3), 'acc': np.zeros(3)},
                       'zmp': {'pos': np.zeros(3), 'vel': np.zeros(3)}}
-
-  def solve(self, current, t):
-    self.x = np.array([current['com']['pos'][0],       current['com']['pos'][1],       current['com']['pos'][2],
-                       current['com']['vel'][0],       current['com']['vel'][1],       current['com']['vel'][2],
-                       current['hw']['val'][0],        current['hw']['val'][1],        current['hw']['val'][2],
-                       current['theta_hat']['val'][0], current['theta_hat']['val'][1], current['theta_hat']['val'][2],
-                       current['lfoot']['pos'][0],     current['lfoot']['pos'][1],     current['lfoot']['pos'][2],
-                       current['lfoot']['vel'][0],     current['lfoot']['vel'][1],     current['lfoot']['vel'][2],
-                       current['rfoot']['pos'][0],     current['rfoot']['pos'][1],     current['rfoot']['pos'][2],
-                       current['rfoot']['vel'][0],     current['rfoot']['vel'][1],     current['rfoot']['vel'][2]])
     
-    mc_x, mc_y, mc_z = self.generate_moving_constraint(t)
+# Solve the mpc every time step --> That will be very tough
+# Main tasks are updating the current state at the beginning of the horizon and
+# let the mpc compute the state in the rest of the horizon
+#
+  def solve(self, current, t):
+    #array = row vector
+    self.current_state = np.array([current['com']['pos'][0],       current['com']['pos'][1],       current['com']['pos'][2],
+                                   current['com']['vel'][0],       current['com']['vel'][1],       current['com']['vel'][2],
+                                   current['hw']['val'][0],        current['hw']['val'][1],        current['hw']['val'][2],
+                                   current['theta_hat']['val'][0], current['theta_hat']['val'][1], current['theta_hat']['val'][2],
+                                   current['lfoot']['pos'][0],     current['lfoot']['pos'][1],     current['lfoot']['pos'][2],
+                                   current['rfoot']['pos'][0],     current['rfoot']['pos'][1],     current['rfoot']['pos'][2],])
+    
+    
+    #An: Update the initial state contrainst
+    self.opt.set_value(self.opti_x0_param, self.current_state)
 
-    #Extract the status of the contacts
-    # reformulate the contact phase from contact planner list
-    t= self.time
+    # mc_x, mc_y, mc_z = self.generate_moving_constraint(t)
+
+    #An: Extract the status of the contacts
+    #An: Update the "real time" contact phase from contact planner list
+    #t= self.time
     contact_status = self.footstep_planner.get_phase_at_time(t)
-    #Update contact status to the model constrains
+    #An: Update contact status to the model constrains
     #'ds'
-    self.opt.set_value(self.contact_left, 1)
-    self.opt.set_value(self.contact_right, 1)
+    self.opt.set_value(self.opti_contact_left, 1)
+    self.opt.set_value(self.opti_contact_right, 1)
     if contact_status == 'ss':
-      self.opt.set_value(self.contact_left, 0)
-      self.opt.set_value(self.contact_right, 1)
+      self.opt.set_value(self.opti_contact_left, 0)
+      self.opt.set_value(self.opti_contact_right, 1)
       contact_status = self.footstep_planner.plan[self.footstep_planner.get_step_index_at_time(t)]['foot_id']
       if contact_status=='lfoot':
-        self.opt.set_value(self.contact_left, 1)
-        self.opt.set_value(self.contact_right, 0)
+        self.opt.set_value(self.opti_contact_left, 1)
+        self.opt.set_value(self.opti_contact_right, 0)
 
+    #An: Update CoM_ref value for every step t and in an entire horizon N=100
+    pos_com_ref_x= self.pos_com_ref_x[t+1:t+1+self.N]
+    pos_com_ref_y= self.pos_com_ref_y[t+1:t+1+self.N]
+    pos_com_ref_z= self.pos_com_ref_z[t+1:t+1+self.N]
+
+    vel_com_ref_x= self.vel_com_ref_x[t+1:t+1+self.N]
+    vel_com_ref_y= self.vel_com_ref_y[t+1:t+1+self.N]
+    vel_com_ref_z= self.vel_com_ref_z[t+1:t+1+self.N]
+
+    acc_com_ref_x= self.acc_com_ref_x[t+1:t+1+self.N]
+    acc_com_ref_y= self.acc_com_ref_y[t+1:t+1+self.N]
+    acc_com_ref_z= self.acc_com_ref_z[t+1:t+1+self.N]
+
+    com_ref_sample_horizon= np.vstack((pos_com_ref_x,pos_com_ref_y,pos_com_ref_z,
+                                      vel_com_ref_x,vel_com_ref_y,vel_com_ref_z,
+                                      acc_com_ref_x,acc_com_ref_y,acc_com_ref_z))
+
+    self.opt.set_value(self.opti_com_ref,com_ref_sample_horizon)
+
+    #An: Update pos_contact_ref value for every step t and in an entire horizon N=100
+    
+    pos_contact_ref_l = self.pos_contact_ref_l[t+1:t+1+self.N].T
+    #print(pos_contact_ref_l)
+    pos_contact_ref_r = self.pos_contact_ref_r[t+1:t+1+self.N].T
+
+    self.opt.set_value(self.opti_pos_contact_l_ref,pos_contact_ref_l)
+    self.opt.set_value(self.opti_pos_contact_r_ref,pos_contact_ref_r)
     # solve optimization problem
-    # Remember to update also the position of foot contact from the simulator
-    self.opt.set_value(self.x0_param, self.x)
-    self.opt.set_value(self.zmp_x_mid_param, mc_x)
-    self.opt.set_value(self.zmp_y_mid_param, mc_y)
-    self.opt.set_value(self.zmp_z_mid_param, mc_z)
+    
+    # self.opt.set_value(self.zmp_x_mid_param, mc_x)
+    # self.opt.set_value(self.zmp_y_mid_param, mc_y)
+    # self.opt.set_value(self.zmp_z_mid_param, mc_z)
 
     sol = self.opt.solve()
-    self.x = sol.value(self.X[:,1])
+    self.x = sol.value(self.opti_state[:,1])
     self.u = sol.value(self.U[:,0])
 
     self.opt.set_initial(self.U, sol.value(self.U))
-    self.opt.set_initial(self.X, sol.value(self.X))
+    self.opt.set_initial(self.opti_state, sol.value(self.opti_state))
 
     # create output LIP state
     # Change the index to take out the result bcz of different order defined in the dynamics model
@@ -153,7 +232,7 @@ class Ismpc:
     if contact == 'ss':
       contact = self.footstep_planner.plan[self.footstep_planner.get_step_index_at_time(t)]['foot_id']
 
-    return self.lip_state, contact_pos
+    return self.lip_state, contact
   
   def generate_moving_constraint(self, t):
     mc_x = np.full(self.N, (self.initial['lfoot']['pos'][3] + self.initial['rfoot']['pos'][3]) / 2.)
@@ -177,22 +256,37 @@ class Ismpc:
   # 3. input: CoM ref, vCoM ref
   # Output:
   # State derivative formular for multiple shooting  
-  def centroidal_dynamic(self, state, CoM_ref, vCoM_ref,contact_lef, contact_right, force_left, force_right,input):
-    k1=1
-    mass = self.params('mass')
-    g = np.array([0, 0,- self.params['g']])
+  def centroidal_dynamic(self, state,CoM_ref,contact_lef, contact_right,input):
+    k1=self.k1
+    mass = self.mass
+    g = np.array([0, 0,- self.g])
+    #print(g)
+    g=g.T
+    gravity = cs.GenDM_zeros(3)
+    gravity[2]=-self.g
+    #Extract states
     com=state[0:3]
     pos_left= state[12:15]
     pos_right= state[15:18]
-    vel_left= state[18:21]
-    vel_right= state[21:24]
+    #Extract inputs
+    force_left=input[0:3]
+    force_right=input[3:6]
+
+    vel_left= input[6:9]
+    vel_right= input[9:12]
+    
+    CoM_ref_pos= cs.vertcat(CoM_ref[0],CoM_ref[1],CoM_ref[2])
+    #CoM_ref_pos=CoM_ref_pos.T
+
+    CoM_ref_vel= cs.vertcat(CoM_ref[3],CoM_ref[4],CoM_ref[5])
+    #CoM_ref_vel=CoM_ref_vel.T
     #size=self.N
     # Centroidal dynamic with disturbance estimator theta hat, contact dynamics
-    dcom=state[3:6]#state[3],state[4],state[5]
-    ddcom= 1/mass*(g+force_left*contact_lef+force_right*contact_right)
-    dhw= np.cross(com-pos_left)*force_left*contact_lef+np.cross(com-pos_right)*force_right*contact_right
+    dcom=state[3:6] #state[3],state[4],state[5]
+    ddcom= g+1/mass*(force_left*contact_lef+force_right*contact_right)
+    dhw= cs.cross(com-pos_left,force_left)*contact_lef+cs.cross(com-pos_right,force_right)*contact_right
     v_left= (1-contact_lef)*vel_left
     v_right= (1-contact_right)*vel_right
-    dthetahat= k1*(com-CoM_ref)+dcom-vCoM_ref
+    dthetahat= k1*(com-CoM_ref_pos)+dcom-CoM_ref_vel
 
-    return cs.vertcart(dcom,ddcom,dhw,dthetahat,v_left,v_right)
+    return cs.vertcat(dcom,ddcom,dhw,dthetahat,v_left,v_right)
