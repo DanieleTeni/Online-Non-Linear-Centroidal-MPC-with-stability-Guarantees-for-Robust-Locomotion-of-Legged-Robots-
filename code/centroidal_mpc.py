@@ -1,6 +1,6 @@
 import numpy as np
 import casadi as cs
-
+print(cs.Importer_load_plugin)
 class centroidal_mpc:
   def __init__(self, initial, footstep_planner, params, CoM_ref):
     # parameters
@@ -11,12 +11,14 @@ class centroidal_mpc:
     self.eta = params['eta']
     self.foot_size = params['foot_size']
     self.mass = params['mass']
+    print("total mass:")
+    print(self.mass)
     self.g = params['g']
     self.initial = initial
     self.footstep_planner = footstep_planner
     self.sigma = lambda t, t0, t1: np.clip((t - t0) / (t1 - t0), 0, 1) # piecewise linear sigmoidal function
-    self.k1=0.1
-    self.k2=0.5
+    self.k1=1
+    self.k2=1
 
     # lip model matrices
     # self.A_lip = np.array([[0, 1, 0], [self.eta**2, 0, -self.eta**2], [0, 0, 0]])
@@ -36,14 +38,14 @@ class centroidal_mpc:
     self.acc_com_ref_x= CoM_ref['acc_x']
     self.acc_com_ref_y= CoM_ref['acc_y']
     self.acc_com_ref_z= CoM_ref['acc_z']
-    print("shape_com:")
-    print(self.acc_com_ref_z[300])
-    print(self.acc_com_ref_z.shape)
+    # print("shape_com:")
+    # print(self.acc_com_ref_z[300])
+    # print(self.acc_com_ref_z.shape)
     #An: Get all the foot step ref from foot step planner over time stamp
     self.pos_contact_ref_l= footstep_planner.contacts_ref['contact_left']
     self.pos_contact_ref_r= footstep_planner.contacts_ref['contact_right']
-    print("shape_contact:")
-    print(self.pos_contact_ref_l)
+    # print("shape_contact:")
+    # print(self.pos_contact_ref_l)
     
     with open("pos_contact_ref_l", "w") as file:
       file.writelines(" \n".join(map(str, self.pos_contact_ref_l)))
@@ -52,11 +54,11 @@ class centroidal_mpc:
 
     #print(CoM_ref)
     # optimization problem setup
-    self.opt = cs.Opti('conic')
-    p_opts = {"expand": True}
-    s_opts = {"max_iter": 1000, "verbose": False}
-    
-    self.opt.solver("osqp", p_opts, s_opts)
+    self.opt = cs.Opti()
+    p_opts = {"expand": True,"print_time":False}
+    s_opts = {"max_iter": 1000,"print_level": False,"tol":10}
+    #Set up a proper optimal solver
+    self.opt.solver('ipopt',p_opts,s_opts)
     
     
   #An: Create optimization variable: prefix "opti_" denotes as symbolic variable
@@ -70,7 +72,7 @@ class centroidal_mpc:
     self.U = cs.vertcat(self.opti_force_contact_l,self.opti_force_contact_r,
                         self.opti_vel_contact_l,self.opti_vel_contact_r)
 
-    #Define the state, centroidal dynamic model. thetahat plays a role as an observer
+    #Define the states of centroidal dynamic model. thetahat plays a role as a disturbance observer
     self.opti_CoM = self.opt.variable(3, self.N + 1)
     self.opti_dCoM = self.opt.variable(3, self.N + 1)
     self.opti_hw = self.opt.variable(3, self.N + 1)
@@ -82,7 +84,7 @@ class centroidal_mpc:
     self.opti_state= cs.vertcat(self.opti_CoM,self.opti_dCoM,self.opti_hw,self.opti_thetahat,
                           self.opti_pos_contact_l,self.opti_pos_contact_r)
 
-  #An: Create optimization params that change during simulation time
+  #An: Create optimization params that must be updated from the simulator or pre-planner during simulation time
     #An Initial state at the beginning of the mpc horizion
     self.opti_x0_param = self.opt.parameter(18) # update every step based on the current value obtained by the simulator (column vector)
     
@@ -91,23 +93,18 @@ class centroidal_mpc:
     #An: Reference contact points, taken from the footstep planner
     self.opti_pos_contact_l_ref = self.opt.parameter(3,self.N)
     self.opti_pos_contact_r_ref = self.opt.parameter(3,self.N)
-    
-    # self.v_com_ref = self.opt.parameter(3,self.N)
-    # self.acc_com_ref = self.opt.parameter(3,self.N)
+  
 
     #An: to track the contact status of the left and right foot 1 means in contact
-    # If the horizon of mpc N=100 then the contact phase will not change it this horizon because ds+ss>=100
-    # If N>100, contact phase has changed, need more number of param to capture that change
-    # The change in the contact phase inside the mpc horizon will affect the dynamic constraint
-    self.opti_contact_left = self.opt.parameter(1)
-    self.opti_contact_right = self.opt.parameter(1)
+    self.opti_contact_left = self.opt.parameter(1,self.N)
+    self.opti_contact_right = self.opt.parameter(1,self.N)
 
     #An: Setup multiple shooting:
     #An: Dynamic constraints
     self.opt.subject_to(self.opti_state[:,0]==self.opti_x0_param)
     for i in range(self.N):
       self.opt.subject_to(self.opti_state[:,i+1]== self.opti_state[:,i]+
-                           self.delta*self.centroidal_dynamic(self.opti_state[:,i],self.opti_com_ref[:,i],self.opti_contact_left,self.opti_contact_right,self.U[:,i]))
+                           self.delta*self.centroidal_dynamic(self.opti_state[:,i],self.opti_com_ref[:,i],self.opti_contact_left[i],self.opti_contact_right[i],self.U[:,i]))
     
     #An: Formulate the change coordinate
     z1= self.opti_CoM[:,1:]-self.opti_com_ref[0:3,:]
@@ -117,33 +114,40 @@ class centroidal_mpc:
     gravity = cs.GenDM_zeros(3)
     gravity[2]=-self.g
     #An: Adaptive force u_n
-    u_n= self.k1*self.k1*z1-(self.k1+self.k2)*z2- gravity +self.opti_com_ref[6:9,:]-self.opti_thetahat[:,1:]
+    u_n= self.k1*self.k1*z1-(self.k1+self.k2)*z2- gravity -self.opti_thetahat[:,1:]#+self.opti_com_ref[6:9,:]
 
     #An: Lyapunov stability constrains
     for i in range(self.N):
-      self.opt.subject_to(-z1[:,i].T@(self.k1*z1[:,i])-z2[:,i].T@(self.k2*z2[:,i])+z1[:,i].T@z2[:,i]+z2[:,i].T@(force_sum-u_n)<=0.0)
+      self.opt.subject_to(-z1[:,i].T@(self.k1*z1[:,i])-z2[:,i].T@(self.k2*z2[:,i])+z1[:,i].T@z2[:,i]+z2[:,i].T@(force_sum-u_n)<0.0)
 
     #An: angular momentum constraint:
     for i in range(self.N):
-      self.opt.subject_to(self.opti_hw[:,i].T@self.opti_hw[:,i]<=0.1)
+      self.opt.subject_to(self.opti_hw[:,i].T@self.opti_hw[:,i]<=100)
     
-
+    #An: Force in z must always be positive
+    for i in range(self.N):
+      self.opt.subject_to(self.opti_force_contact_l[2:,i]>0)
+      self.opt.subject_to(self.opti_force_contact_r[2:,i]>0)
 
     
     # Define the cost function
     # still lack of the components to minimize the deviation of forces at the foot vertices (aka foot corners)
-    cost = 10*cs.sumsqr(self.opti_hw[:,1:]) + \
-           1*cs.sumsqr(self.opti_CoM[:,1:]-self.opti_com_ref[0:3,:])+\
-           10*cs.sumsqr(self.opti_pos_contact_l[:,1:]-self.opti_pos_contact_l_ref)+\
-           10*cs.sumsqr(self.opti_pos_contact_r[:,1:]-self.opti_pos_contact_r_ref)
+    cost = 1*cs.sumsqr(self.opti_hw[:,1:]) + \
+           100*cs.sumsqr(self.opti_CoM[:,1:]-self.opti_com_ref[0:3,:])+\
+           100*cs.sumsqr(self.opti_pos_contact_l[:,1:]-self.opti_pos_contact_l_ref)+\
+           100*cs.sumsqr(self.opti_pos_contact_r[:,1:]-self.opti_pos_contact_r_ref)
            
 
     self.opt.minimize(cost)
 
     #An: initialize the state space to collect the real time state value from the simulator
     self.current_state = np.zeros(3*6)
-    self.lip_state = {'com': {'pos': np.zeros(3), 'vel': np.zeros(3), 'acc': np.zeros(3)},
-                      'zmp': {'pos': np.zeros(3), 'vel': np.zeros(3)}}
+    #An: CoM_acc as the ff for the inverse dynamic controller
+    self.model_state = {'com': {'pos': np.zeros(3), 'vel': np.zeros(3), 'acc': np.zeros(3)},
+                        'hw' : {'val': np.zeros(3)},
+                  'theta_hat': {'val': np.zeros(3)},
+          'pos_contact_left' : {'val': np.zeros(3)},
+          'pos_contact_right': {'val': np.zeros(3)}}
     
 # Solve the mpc every time step --> That will be very tough
 # Main tasks are updating the current state at the beginning of the horizon and
@@ -151,34 +155,61 @@ class centroidal_mpc:
 #
   def solve(self, current, t):
     #array = row vector
+    print("model pre step")
+    print("theta_hat")
+    print(self.model_state['theta_hat']['val'][0])
+    print("lfoot")
+    print(self.model_state['pos_contact_left']['val'])
+    print("rfoot")
+    print(self.model_state['pos_contact_right']['val'])
+    print("com")
+    print(self.model_state['com']['pos'])
+    print("com_vel")
+    print(self.model_state['com']['vel'])
+    
+
+
+
     self.current_state = np.array([current['com']['pos'][0],       current['com']['pos'][1],       current['com']['pos'][2],
                                    current['com']['vel'][0],       current['com']['vel'][1],       current['com']['vel'][2],
                                    current['hw']['val'][0],        current['hw']['val'][1],        current['hw']['val'][2],
-                                   current['theta_hat']['val'][0], current['theta_hat']['val'][1], current['theta_hat']['val'][2],
-                                   current['lfoot']['pos'][0],     current['lfoot']['pos'][1],     current['lfoot']['pos'][2],
-                                   current['rfoot']['pos'][0],     current['rfoot']['pos'][1],     current['rfoot']['pos'][2],])
+                      self.model_state['theta_hat']['val'][0], self.model_state['theta_hat']['val'][1], self.model_state['theta_hat']['val'][2],
+                                   current['lfoot']['pos'][3],     current['lfoot']['pos'][4],     current['lfoot']['pos'][5],
+                                   current['rfoot']['pos'][3],     current['rfoot']['pos'][4],     current['rfoot']['pos'][5],])
     
     
     #An: Update the initial state contrainst
+    print("current state:")
+    print(self.current_state)
     self.opt.set_value(self.opti_x0_param, self.current_state)
 
     # mc_x, mc_y, mc_z = self.generate_moving_constraint(t)
 
     #An: Extract the status of the contacts
-    #An: Update the "real time" contact phase from contact planner list
-    #t= self.time
-    contact_status = self.footstep_planner.get_phase_at_time(t)
-    #An: Update contact status to the model constrains
-    #'ds'
-    self.opt.set_value(self.opti_contact_left, 1)
-    self.opt.set_value(self.opti_contact_right, 1)
-    if contact_status == 'ss':
-      self.opt.set_value(self.opti_contact_left, 0)
-      self.opt.set_value(self.opti_contact_right, 1)
-      contact_status = self.footstep_planner.plan[self.footstep_planner.get_step_index_at_time(t)]['foot_id']
-      if contact_status=='lfoot':
-        self.opt.set_value(self.opti_contact_left, 1)
-        self.opt.set_value(self.opti_contact_right, 0)
+    #An: Update the "real time" contact phase from contact planner list => need to be updated in advance in an entire horizon
+    #t= self.time    
+    contact_status_l=np.empty((0, 1))
+    contact_status_r=np.empty((0, 1))
+    for i in range(self.N):
+      contact_status = self.footstep_planner.get_phase_at_time(t+i)
+      #'ds'
+      #print("contact_status:")
+      #print(contact_status)
+      contact_status_l_i=np.array([[1]])
+      contact_status_r_i=np.array([[1]])
+      if contact_status == 'ss':
+        contact_status_l_i=np.array([[0]])
+        contact_status_r_i=np.array([[1]])
+        contact_status = self.footstep_planner.plan[self.footstep_planner.get_step_index_at_time(t)]['foot_id']
+        if contact_status=='lfoot':
+          contact_status_l_i=np.array([[1]])
+          contact_status_r_i=np.array([[0]])
+
+      contact_status_l=np.vstack((contact_status_l,contact_status_l_i))
+      contact_status_r=np.vstack((contact_status_r,contact_status_r_i))
+     
+    self.opt.set_value(self.opti_contact_left, contact_status_l)
+    self.opt.set_value(self.opti_contact_right, contact_status_r)
 
     #An: Update CoM_ref value for every step t and in an entire horizon N=100
     pos_com_ref_x= self.pos_com_ref_x[t+1:t+1+self.N]
@@ -220,19 +251,30 @@ class centroidal_mpc:
     self.opt.set_initial(self.U, sol.value(self.U))
     self.opt.set_initial(self.opti_state, sol.value(self.opti_state))
 
+    model_force_l= self.u[0:3]
+    model_force_r= self.u[3:6]
+    print("force_l")
+    print(model_force_l)
+    print("force_r")
+    print(model_force_r)
     # create output LIP state
     # Change the index to take out the result bcz of different order defined in the dynamics model
-    self.lip_state['com']['pos'] = np.array([self.x[0], self.x[1], self.x[2]])
-    self.lip_state['com']['vel'] = np.array([self.x[3], self.x[4], self.x[5]])
-    self.lip_state['zmp']['pos'] = np.array([self.x[2], self.x[5], self.x[8]])
-    self.lip_state['zmp']['vel'] = self.u
-    self.lip_state['com']['acc'] = self.eta**2 * (self.lip_state['com']['pos'] - self.lip_state['zmp']['pos']) + np.hstack([0, 0, - self.params['g']])
+    self.model_state['com']['pos'] = np.array([self.x[0], self.x[1], self.x[2]])
+    self.model_state['com']['vel'] = np.array([self.x[3], self.x[4], self.x[5]])
+    self.model_state['com']['acc'] = (model_force_l*contact_status_l[0]+model_force_r*contact_status_r[0]).T/(self.mass)+np.array([0, 0,- self.g])
+    self.model_state['hw']['val'] = np.array([self.x[6], self.x[7], self.x[8]])
+    self.model_state['theta_hat']['val'] = np.array([self.x[9], self.x[10], self.x[11]])
+    self.model_state['pos_contact_left']['val'] = np.array([self.x[12], self.x[13], self.x[14]])
+    self.model_state['pos_contact_right']['val'] = np.array([self.x[15], self.x[16], self.x[17]])
 
+    print("com_acc")
+    print(self.model_state['com']['acc'])
+    # Need to add here the output of mpc for contact pos
     contact = self.footstep_planner.get_phase_at_time(t)
     if contact == 'ss':
       contact = self.footstep_planner.plan[self.footstep_planner.get_step_index_at_time(t)]['foot_id']
 
-    return self.lip_state, contact
+    return self.model_state, contact
   
   def generate_moving_constraint(self, t):
     mc_x = np.full(self.N, (self.initial['lfoot']['pos'][3] + self.initial['rfoot']['pos'][3]) / 2.)
@@ -248,13 +290,14 @@ class centroidal_mpc:
       mc_y += self.sigma(time_array, ds_start_time, fs_end_time) * (fs_target_pos[1] - fs_current_pos[1])
 
     return mc_x, mc_y, np.zeros(self.N)
-  #An's function: Compute the centroidal dynamic
-  # Input:
-  # 1. state: com, dcom, angularmomentum, thetahat: casadi opt.variable | contact[pos: casadi opt.variable,onGround:logic]
+  #An's function: Compute the centroidal dynamic using casadi symbolic variables
+  #Input:
+  # 1/ state: com, dcom, angularmomentum, thetahat, pos_contact_left, pos_contact_right
   #(here I am writing for contact with one vertex --> develop later for multiple vertex)
-  # 2. input: contact force: casadi opt.variable
-  # 3. input: CoM ref, vCoM ref
-  # Output:
+  # 2.1/ Pre_plan value (numerical value) for building thetahat: pos_CoM_ref, vel_CoM_ref
+  # 2.2/ Pre plan value (numerical value) for model: contact_status (on the ground or not)
+  # 3/ control input: contact_force, contact_vel
+  #Output: Derivative of the state
   # State derivative formular for multiple shooting  
   def centroidal_dynamic(self, state,CoM_ref,contact_lef, contact_right,input):
     k1=self.k1
@@ -262,8 +305,8 @@ class centroidal_mpc:
     g = np.array([0, 0,- self.g])
     #print(g)
     g=g.T
-    gravity = cs.GenDM_zeros(3)
-    gravity[2]=-self.g
+    # gravity = cs.GenDM_zeros(3)
+    # gravity[2]=-self.g
     #Extract states
     com=state[0:3]
     pos_left= state[12:15]
@@ -283,7 +326,7 @@ class centroidal_mpc:
     #size=self.N
     # Centroidal dynamic with disturbance estimator theta hat, contact dynamics
     dcom=state[3:6] #state[3],state[4],state[5]
-    ddcom= g+1/mass*(force_left*contact_lef+force_right*contact_right)
+    ddcom= g+(1/mass)*(force_left*contact_lef+force_right*contact_right)
     dhw= cs.cross(com-pos_left,force_left)*contact_lef+cs.cross(com-pos_right,force_right)*contact_right
     v_left= (1-contact_lef)*vel_left
     v_right= (1-contact_right)*vel_right
