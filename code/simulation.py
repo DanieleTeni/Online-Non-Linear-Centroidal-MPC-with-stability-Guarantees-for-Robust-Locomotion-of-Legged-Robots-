@@ -73,7 +73,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.initial = self.retrieve_state()
         self.contact = 'lfoot' if self.params['first_swing'] == 'rfoot' else 'rfoot' # there is a dummy footstep
         self.desired = copy.deepcopy(self.initial)
-        self.rb_desired = copy.deepcopy(self.initial)
+        self.com_ref = copy.deepcopy(self.initial)
 
         # selection matrix for redundant dofs
         redundant_dofs = [ \
@@ -101,7 +101,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             self.params
             )
         
-        self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner,0)  
+        self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner)  
         print("ref_length:")
         #print(len(self.ref['pos_x']))
         #self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner,1)  FOR SEE GRAHP
@@ -160,32 +160,43 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         # create current and desired states
         self.current = self.retrieve_state() 
         #print(self.current)
-        # update kalman filter
-        # u = np.array([self.desired['zmp']['vel'][0], self.desired['zmp']['vel'][1], self.desired['zmp']['vel'][2]])
-        # self.kf.predict(u)
-        # x_flt, _ = self.kf.update(np.array([self.current['com']['pos'][0], self.current['com']['vel'][0], self.current['zmp']['pos'][0], \
-        #                                     self.current['com']['pos'][1], self.current['com']['vel'][1], self.current['zmp']['pos'][1], \
-        #                                     self.current['com']['pos'][2], self.current['com']['vel'][2], self.current['zmp']['pos'][2]]))
+        #update kalman filter
+        u = np.array([self.desired['zmp']['vel'][0], self.desired['zmp']['vel'][1], self.desired['zmp']['vel'][2]])
+        self.kf.predict(u)
+        x_flt, _ = self.kf.update(np.array([self.current['com']['pos'][0], self.current['com']['vel'][0], self.current['zmp']['pos'][0], \
+                                            self.current['com']['pos'][1], self.current['com']['vel'][1], self.current['zmp']['pos'][1], \
+                                            self.current['com']['pos'][2], self.current['com']['vel'][2], self.current['zmp']['pos'][2]]))
         
-        # # update current state using kalman filter output
-        # self.current['com']['pos'][0] = x_flt[0]
-        # self.current['com']['vel'][0] = x_flt[1]
-        # self.current['zmp']['pos'][0] = x_flt[2]
-        # self.current['com']['pos'][1] = x_flt[3]
-        # self.current['com']['vel'][1] = x_flt[4]
-        # self.current['zmp']['pos'][1] = x_flt[5]
-        # self.current['com']['pos'][2] = x_flt[6]
-        # self.current['com']['vel'][2] = x_flt[7]
-        # self.current['zmp']['pos'][2] = x_flt[8]
+        # update current state using kalman filter output
+        self.current['com']['pos'][0] = x_flt[0]
+        self.current['com']['vel'][0] = x_flt[1]
+        self.current['zmp']['pos'][0] = x_flt[2]
+        self.current['com']['pos'][1] = x_flt[3]
+        self.current['com']['vel'][1] = x_flt[4]
+        self.current['zmp']['pos'][1] = x_flt[5]
+        self.current['com']['pos'][2] = x_flt[6]
+        self.current['com']['vel'][2] = x_flt[7]
+        self.current['zmp']['pos'][2] = x_flt[8]
 
         # get references using mpc SOLVE THE MPC
         #lip_state, contact = self.mpc.solve(self.current, self.time)
         robot_state, contact= self.centroidal_mpc.solve(self.current, self.time)
         #lip_state, contact = self.centroidal_mpc.solve(self.current, self.time)
+        
         self.desired['com']['pos'] = robot_state['com']['pos']
         self.desired['com']['vel'] = robot_state['com']['vel']
         self.desired['com']['acc'] = robot_state['com']['acc']
-        self.desired['hw']['val'] = robot_state['hw']['val']
+        #self.desired['hw']['val'] = robot_state['hw']['val']
+        
+        self.com_ref['com']['pos'][0] = self.ref['pos_x'][self.time]
+        self.com_ref['com']['pos'][1] = self.ref['pos_y'][self.time]
+        self.com_ref['com']['pos'][2] = self.ref['pos_z'][self.time]
+        
+        # self.com_ref['com']['pos'][0] = self.ref['pos_x'][self.time]
+        # self.com_ref['com']['pos'][0] = self.ref['pos_x'][self.time]
+        # self.com_ref['com']['pos'][0] = self.ref['pos_x'][self.time]
+
+        
         #self.desired['zmp']['vel'] = lip_state['zmp']['vel']
 
         # self.rb_desired['com']['pos'] = robot_state['com']['pos']
@@ -213,7 +224,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             self.hrp4.setCommand(i + 6, commands[i])
 
         # log and plot
-        self.logger.log_data( self.desired,self.current)
+        self.logger.log_data( self.com_ref,self.desired)
         self.logger.update_plot(self.time)
         # print("step index:")
         # print(self.footstep_planner.get_step_index_at_time(self.time))

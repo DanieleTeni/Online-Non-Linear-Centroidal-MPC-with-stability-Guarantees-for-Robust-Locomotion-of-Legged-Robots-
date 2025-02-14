@@ -13,8 +13,8 @@ def compute_knot(foot_tra,planner):
         sequence=[]#[0]
         knot_x.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][3])/2)
         knot_y.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][4])/2)
-        for i in range(201,(len(planner.plan)-1)*100):
-         if (i-285)%100==0 :
+        for i in range(1,(len(planner.plan)-1)*100):
+         if (i-271)%100==0 :
           knot_x.append((foot_tra.generate_feet_trajectories_at_time(i)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(i)['rfoot']['pos'][3])/2)
           knot_y.append((foot_tra.generate_feet_trajectories_at_time(i)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(i)['rfoot']['pos'][4])/2)
           sequence.append(i)
@@ -22,7 +22,7 @@ def compute_knot(foot_tra,planner):
         knot_x.append((foot_tra.generate_feet_trajectories_at_time(t)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(t)['rfoot']['pos'][3])/2)
         knot_y.append((foot_tra.generate_feet_trajectories_at_time(t)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(t)['rfoot']['pos'][4])/2)
         sequence.append(t)
-        #plot_spline(knot_x)
+        plot_spline(knot_y)
         return knot_x,knot_y,sequence
 
 
