@@ -2,10 +2,10 @@ import numpy as np
 import casadi as cs
 print(cs.Importer_load_plugin)
 class centroidal_mpc:
-  def __init__(self, initial, footstep_planner, params, CoM_ref):
+  def __init__(self, initial, footstep_planner, params, CoM_ref, contact_trj_l, contact_trj_r):
     # parameters
     self.params = params
-    self.N = params['N']-90
+    self.N = params['N']+100
     self.delta = params['world_time_step']
     self.h = params['h']
     self.eta = params['eta']
@@ -20,6 +20,8 @@ class centroidal_mpc:
     self.k1=0.1
     self.k2=0.5
 
+    self.contact_trj_l=contact_trj_l
+    self.contact_trj_r=contact_trj_r
     #An: Get the CoM_ref data from Daniele --> thanks
     #self.CoM_ref_planner=CoM_ref
 
@@ -42,12 +44,20 @@ class centroidal_mpc:
     with open("pos_contact_ref_l", "w") as file:
       file.writelines(" \n".join(map(str, self.pos_contact_ref_l)))
 
+    with open("pos_contact_ref_right", "w") as file:
+      file.writelines(" \n".join(map(str, self.pos_contact_ref_r)))
     # optimization problem setup
     self.opt = cs.Opti()
     p_opts = {"expand": True,"print_time":False}
     s_opts = {"max_iter": 100000,"print_level": False,"tol":0.001}
     #Set up a proper optimal solver
     self.opt.solver('ipopt',p_opts,s_opts) #An: Use different solver, refer to C++ code
+
+    #  # optimization problem
+    # self.opt = cs.Opti('conic')
+    # p_opts = {"expand": True}
+    # s_opts = {"max_iter": 1000, "verbose": False}
+    # self.opt.solver("osqp", p_opts, s_opts)
     
     
   #An: Create optimization variable: prefix "opti_" denotes as symbolic variable
@@ -202,13 +212,21 @@ class centroidal_mpc:
       if contact_status == 'ss':
         contact_status_l_i=np.array([[0]])
         contact_status_r_i=np.array([[1]])
-        contact_status = self.footstep_planner.plan[self.footstep_planner.get_step_index_at_time(t)]['foot_id']
+        contact_status = self.footstep_planner.plan[self.footstep_planner.get_step_index_at_time(t+i)]['foot_id']
         if contact_status=='lfoot':
           contact_status_l_i=np.array([[1]])
           contact_status_r_i=np.array([[0]])
 
       contact_status_l=np.vstack((contact_status_l,contact_status_l_i))
       contact_status_r=np.vstack((contact_status_r,contact_status_r_i))
+    print("planned contact status left")
+    print(contact_status_l[0])
+    print("planned contact status right")
+    print(contact_status_r[0])
+    with open("update contact status left in entire horizon", "w") as file:
+      file.writelines("\n".join(map(str, contact_status_l)))
+    with open("update contact status right in entire horizon", "w") as file:
+      file.writelines("\n".join(map(str, contact_status_r)))
     #print("contact_status_left:")
     #print(contact_status_l)
     self.opt.set_value(self.opti_contact_left, contact_status_l)
@@ -231,12 +249,12 @@ class centroidal_mpc:
                                       vel_com_ref_x,vel_com_ref_y,vel_com_ref_z,
                                       acc_com_ref_x,acc_com_ref_y,acc_com_ref_z))
 
-    print("Com ref pos x:")
-    print(com_ref_sample_horizon[0])
-    print("Com ref pos y:")
-    print(com_ref_sample_horizon[1])
-    print("Com ref pos z:")
-    print(com_ref_sample_horizon[2])
+    # print("Com ref pos x:")
+    # print(com_ref_sample_horizon[0])
+    # print("Com ref pos y:")
+    # print(com_ref_sample_horizon[1])
+    # print("Com ref pos z:")
+    # print(com_ref_sample_horizon[2])
     
     self.opt.set_value(self.opti_com_ref,com_ref_sample_horizon)
 
@@ -246,10 +264,12 @@ class centroidal_mpc:
     #print(pos_contact_ref_l)
     pos_contact_ref_r = self.pos_contact_ref_r[t+0:t+0+self.N].T
 
-    self.opt.set_value(self.opti_pos_contact_l_ref,pos_contact_ref_l)
-    self.opt.set_value(self.opti_pos_contact_r_ref,pos_contact_ref_r)
+    for i in range(self.N):
+      self.opt.set_value(self.opti_pos_contact_l_ref[:,i],self.contact_trj_l[t+i][0]['pos'][3:6])
+      self.opt.set_value(self.opti_pos_contact_r_ref[:,i],self.contact_trj_r[t+i][0]['pos'][3:6])
     # solve optimization problem
-    
+    print("planned contact ref left")
+    print(self.contact_trj_l[t][0]['pos'][3:6])
     # self.opt.set_value(self.zmp_x_mid_param, mc_x)
     # self.opt.set_value(self.zmp_y_mid_param, mc_y)
     # self.opt.set_value(self.zmp_z_mid_param, mc_z)
@@ -259,9 +279,15 @@ class centroidal_mpc:
     self.u = sol.value(self.U[:,0])
 
     self.x_collect=sol.value(self.opti_state)
-    # print("mpc result in entire horizon")
+    # print("mpc contact result in entire horizon")
     # for i in range(self.N):
-    #   print(self.x_collect[:,i])
+    #   print(self.x_collect[12:15,i])
+
+    with open("mpc contact result in entire horizon", "w") as file:
+      #file.writelines("mpc contact result in entire horizon")
+      #for i in range(self.N):
+        file.writelines(" \n".join(map(str, self.x_collect[12:15,:])))
+        #file.writelines("")
 
     self.opt.set_initial(self.U, sol.value(self.U))
     self.opt.set_initial(self.opti_state, sol.value(self.opti_state))
@@ -297,6 +323,8 @@ class centroidal_mpc:
 
     print("com_acc")
     print(self.model_state['com']['acc'])
+
+
     # Need to add here the output of mpc for contact pos
     contact = self.footstep_planner.get_phase_at_time(t)
     if contact == 'ss':

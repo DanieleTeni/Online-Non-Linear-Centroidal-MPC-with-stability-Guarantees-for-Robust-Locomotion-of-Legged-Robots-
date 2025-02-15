@@ -24,10 +24,10 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             'h': 0.72,
             'foot_size': 0.1,
             'step_height': 0.02,
-            'ss_duration': 70,
-            'ds_duration': 30,
             'world_time_step': world.getTimeStep(),
-            'first_swing': 'rfoot',
+            'ss_duration': int(0.7/world.getTimeStep()),
+            'ds_duration': int(0.3/world.getTimeStep()),
+            'first_swing': 'lfoot',
             'µ': 0.5,
             'N': 100,
             'dof': self.hrp4.getNumDofs(),
@@ -101,6 +101,20 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             self.params
             )
         
+        pre_feet_traj= self.foot_trajectory_generator.generate_feet_trajectories_pre()
+        self.pre_left_traj=pre_feet_traj['lfoot']
+        self.pre_right_traj=pre_feet_traj['rfoot']
+
+        with open("Pos Lfoot pre trj", "w") as file:
+            for i in range(len(self.pre_left_traj)):
+                file.writelines(" ".join(map(str, self.pre_left_traj[i][0]['pos'][3:6]))+ "\n")
+            
+        
+        with open("Pos Rfoot pre trj", "w") as file:
+            for i in range(len(self.pre_left_traj)):
+                file.writelines(" ".join(map(str, self.pre_right_traj[i][0]['pos'][3:6]))+ "\n")
+
+      
         self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner)  
         print("ref_length:")
         #print(len(self.ref['pos_x']))
@@ -114,10 +128,10 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         # print(self.contact_ref['contact_right'][199])
         # print(self.contact_ref['contact_right'][300])
         #print(self.contact_ref['contact_right'][199].shape[1])       
-        # print("foot_step_plan")
-        # for i in range(len(self.footstep_planner.plan)):
-        #     print(self.footstep_planner.plan[i])
-        #     print()
+        print("foot_step_plan")
+        for i in range(len(self.footstep_planner.plan)):
+            print(self.footstep_planner.plan[i])
+            print()
         self.mpc = ismpc.Ismpc(
             self.initial, 
             self.footstep_planner, 
@@ -129,7 +143,9 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             self.initial, 
             self.footstep_planner, 
             self.params,
-            self.ref
+            self.ref,
+            self.pre_left_traj,
+            self.pre_right_traj
         )
         # initialize kalman filter
         A = np.identity(3) + self.params['world_time_step'] * self.mpc.A_lip
@@ -210,6 +226,9 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         for foot in ['lfoot', 'rfoot']:
             for key in ['pos', 'vel', 'acc']:
                 self.desired[foot][key] = feet_trajectories[foot][key]
+        
+        print("right foot position trj:")
+        print(self.desired['lfoot']['pos'][3:6])
 
         # set torso and base references to the average of the feet
         for link in ['torso', 'base']:
@@ -339,7 +358,7 @@ if __name__ == "__main__":
 
     # create world node and add it to viewer
     viewer = dart.gui.osg.Viewer()
-    node.setTargetRealTimeFactor(10) # speed up the visualization by 10x
+    node.setTargetRealTimeFactor(100) # speed up the visualization by 10x
     viewer.addWorldNode(node)
 
     #viewer.setUpViewInWindow(0, 0, 1920, 1080)
