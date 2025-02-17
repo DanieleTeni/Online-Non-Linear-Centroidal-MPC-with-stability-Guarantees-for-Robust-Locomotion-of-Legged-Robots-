@@ -3,13 +3,13 @@ import dartpy as dart
 import copy
 from utils import *
 import os
-import ismpc
 import footstep_planner
 import inverse_dynamics as id
 import filter
 import foot_trajectory_generator as ftg
 from logger import Logger
 import new
+import centroidal
 
 class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
     def __init__(self, world, hrp4):
@@ -29,9 +29,12 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             'µ': 0.5,
             'N': 100,
             'dof': self.hrp4.getNumDofs(),
+            'mass': self.hrp4.getMass(), #An: Add the mass of the robot as a default param
         }
         self.params['eta'] = np.sqrt(self.params['g'] / self.params['h'])
-
+        print("time_step:")
+        print(self.params['world_time_step'])
+              
         # robot links
         self.lsole = hrp4.getBodyNode('l_sole')
         self.rsole = hrp4.getBodyNode('r_sole')
@@ -63,21 +66,23 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.hrp4.setPosition(4, - (lsole_pos[1] + rsole_pos[1]) / 2.)
         self.hrp4.setPosition(5, - (lsole_pos[2] + rsole_pos[2]) / 2.)
 
+   
         # initialize state
         self.initial = self.retrieve_state()
         self.contact = 'lfoot' if self.params['first_swing'] == 'rfoot' else 'rfoot' # there is a dummy footstep
         self.desired = copy.deepcopy(self.initial)
+        self.rb_desired = copy.deepcopy(self.initial)
 
         # selection matrix for redundant dofs
         redundant_dofs = [ \
             "NECK_Y", "NECK_P", \
             "R_SHOULDER_P", "R_SHOULDER_R", "R_SHOULDER_Y", "R_ELBOW_P", \
-            "L_SHOULDER_P", "L_SHOULDER_R", "L_SHOULDER_Y", "L_ELBOW_P"]
+            "L_SHOULDER_P", "L_SHOULDER_R","L_SHOULDER_Y", "L_ELBOW_P"]
         
         # initialize inverse dynamics
         self.id = id.InverseDynamics(self.hrp4, redundant_dofs)
 
-        # initialize footstep planner
+             # initialize footstep planner
         reference = [(0.1, 0., 0.2)] * 5 + [(0.1, 0., -0.1)] * 10 + [(0.1, 0., 0.)] * 10
         self.footstep_planner = footstep_planner.FootstepPlanner(
             reference,
@@ -85,9 +90,8 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             self.initial['rfoot']['pos'],
             self.params
             )
-
-
-
+        
+    
         # initialize foot trajectory generator
         self.foot_trajectory_generator = ftg.FootTrajectoryGenerator(
             self.initial, 
@@ -95,20 +99,37 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             self.params
             )
         
-        self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner)  
+        self.foot_ref=self.foot_trajectory_generator.foot_reference()
+        
+        self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner,1)  
+       #
+        #print(len(self.ref['pos_x']))
         #self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner,1)  FOR SEE GRAHP
         
-                # initialize MPC controller
-        self.mpc = ismpc.Ismpc(
+             # initialize MPC controller
+        self.contact_ref= self.footstep_planner.contacts_ref
+       #
+        print(self.contact_ref['contact_left'][199])
+        print(self.contact_ref['contact_left'][201])
+        print(self.contact_ref['contact_right'][199])
+        print(self.contact_ref['contact_right'][300])
+        #print(self.contact_ref['contact_right'][199].shape[1])       
+        print("foot_step_plan")
+        for i in range(len(self.footstep_planner.plan)):
+            print(self.footstep_planner.plan[i])
+            print()
+
+        self.mpc=centroidal.centroidal_mpc(
             self.initial, 
             self.footstep_planner, 
             self.params,
-            self.ref
-            )
-
+            self.ref,
+            self.foot_ref
+            
+        )
         # initialize kalman filter
-        A = np.identity(3) + self.params['world_time_step'] * self.mpc.A_lip
-        B = self.params['world_time_step'] * self.mpc.B_lip
+        # A = np.identity(3) + self.params['world_time_step'] * self.mpc.A_lip
+        # B = self.params['world_time_step'] * self.mpc.B_lip
         d = np.zeros(9)
         d[7] = - self.params['world_time_step'] * self.params['g']
         H = np.identity(3)
@@ -118,55 +139,73 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         x = np.array([self.initial['com']['pos'][0], self.initial['com']['vel'][0], self.initial['zmp']['pos'][0], \
                       self.initial['com']['pos'][1], self.initial['com']['vel'][1], self.initial['zmp']['pos'][1], \
                       self.initial['com']['pos'][2], self.initial['com']['vel'][2], self.initial['zmp']['pos'][2]])
-        self.kf = filter.KalmanFilter(block_diag(A, A, A), \
-                                      block_diag(B, B, B), \
-                                      d, \
-                                      block_diag(H, H, H), \
-                                      block_diag(Q, Q, Q), \
-                                      block_diag(R, R, R), \
-                                      block_diag(P, P, P), \
-                                      x)
+        # self.kf = filter.KalmanFilter(block_diag(A, A, A), \
+        #                               block_diag(B, B, B), \
+        #                               d, \
+        #                               block_diag(H, H, H), \
+        #                               block_diag(Q, Q, Q), \
+        #                               block_diag(R, R, R), \
+        #                               block_diag(P, P, P), \
+        #                               x)
 
         # initialize logger and plots
-        self.logger = Logger(self.initial)
-        self.logger.initialize_plot(frequency=10)
+        # self.logger = Logger(self.initial)
+        # self.logger.initialize_plot(frequency=10)
+
+
+
+    def compute_angular_momentum(self):
+        h=np.zeros(3)
+        for body in self.hrp4.getBodyNodes() :
+            h+=body.getAngularMomentum()
+        # print('anguala momentum',h)
+        
+        return h
         
     def customPreStep(self):
         # create current and desired states
         self.current = self.retrieve_state()
-
+        
         # update kalman filter
         u = np.array([self.desired['zmp']['vel'][0], self.desired['zmp']['vel'][1], self.desired['zmp']['vel'][2]])
-        self.kf.predict(u)
-        x_flt, _ = self.kf.update(np.array([self.current['com']['pos'][0], self.current['com']['vel'][0], self.current['zmp']['pos'][0], \
-                                            self.current['com']['pos'][1], self.current['com']['vel'][1], self.current['zmp']['pos'][1], \
-                                            self.current['com']['pos'][2], self.current['com']['vel'][2], self.current['zmp']['pos'][2]]))
+        # self.kf.predict(u)
+        # x_flt, _ = self.kf.update(np.array([self.current['com']['pos'][0], self.current['com']['vel'][0], self.current['zmp']['pos'][0], \
+        #                                     self.current['com']['pos'][1], self.current['com']['vel'][1], self.current['zmp']['pos'][1], \
+        #                                     self.current['com']['pos'][2], self.current['com']['vel'][2], self.current['zmp']['pos'][2]]))
         
         # update current state using kalman filter output
-        self.current['com']['pos'][0] = x_flt[0]
-        self.current['com']['vel'][0] = x_flt[1]
-        self.current['zmp']['pos'][0] = x_flt[2]
-        self.current['com']['pos'][1] = x_flt[3]
-        self.current['com']['vel'][1] = x_flt[4]
-        self.current['zmp']['pos'][1] = x_flt[5]
-        self.current['com']['pos'][2] = x_flt[6]
-        self.current['com']['vel'][2] = x_flt[7]
-        self.current['zmp']['pos'][2] = x_flt[8]
+        # self.current['com']['pos'][0] = x_flt[0]
+        # self.current['com']['vel'][0] = x_flt[1]
+        # self.current['zmp']['pos'][0] = x_flt[2]
+        # self.current['com']['pos'][1] = x_flt[3]
+        # self.current['com']['vel'][1] = x_flt[4]
+        # self.current['zmp']['pos'][1] = x_flt[5]
+        # self.current['com']['pos'][2] = x_flt[6]
+        # self.current['com']['vel'][2] = x_flt[7]
+        # self.current['zmp']['pos'][2] = x_flt[8]
 
-        # get references using mpc
-        lip_state, contact = self.mpc.solve(self.current, self.time)
+        # get references using mpc SOLVE THE MPC
+        # lip_state, contact = self.mpc.solve(self.current, self.time)
+        robot_state, contact= self.mpc.solve(self.current, self.time)
+        #lip_state, contact = self.centroidal_mpc.solve(self.current, self.time)
+        self.desired['com']['pos'] = robot_state['com']['pos']
+        self.desired['com']['vel'] = robot_state['com']['vel']
+        self.desired['com']['acc'] = robot_state['com']['acc']
 
-        self.desired['com']['pos'] = lip_state['com']['pos']
-        self.desired['com']['vel'] = lip_state['com']['vel']
-        self.desired['com']['acc'] = lip_state['com']['acc']
-        self.desired['zmp']['pos'] = lip_state['zmp']['pos']
-        self.desired['zmp']['vel'] = lip_state['zmp']['vel']
+
+        # self.rb_desired['com']['pos'] = robot_state['com']['pos']
+        # self.rb_desired['com']['vel'] = robot_state['com']['vel']
+        # self.rb_desired['com']['acc'] = lip_state['com']['acc']
+        # self.rb_desired['zmp']['pos'] = lip_state['zmp']['pos']
+        # self.rb_desired['zmp']['vel'] = lip_state['zmp']['vel']
 
         # get foot trajectories
         feet_trajectories = self.foot_trajectory_generator.generate_feet_trajectories_at_time(self.time)
         for foot in ['lfoot', 'rfoot']:
-            for key in ['pos', 'vel', 'acc']:
+            for key in ['pos', 'vel']:
                 self.desired[foot][key] = feet_trajectories[foot][key]
+                self.desired[foot][key][3:6] = robot_state[foot][key]
+            self.desired[foot]['acc'] = feet_trajectories[foot]['acc']
 
         # set torso and base references to the average of the feet
         for link in ['torso', 'base']:
@@ -181,10 +220,16 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             self.hrp4.setCommand(i + 6, commands[i])
 
         # log and plot
-        self.logger.log_data(self.current, self.desired)
-        self.logger.update_plot(self.time)
-
-        self.time += 1
+        # self.logger.log_data(self.current, self.desired)
+        # self.logger.update_plot(self.time)
+        # print("step index:")
+        # print(self.footstep_planner.get_step_index_at_time(self.time))
+        # print("step phase:")
+        # print(self.footstep_planner.get_phase_at_time(self.time))
+        #print(self.footstep_planner.get_start_time(self.footstep_planner.get_step_index_at_time(self.time)))
+        self.time += 1# the clock that counts the time
+        print(self.time)
+  
 
     def retrieve_state(self):
         # com and torso pose (orientation and position)
@@ -197,6 +242,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         l_foot_orientation = get_rotvec(l_foot_transform.rotation())
         l_foot_position = l_foot_transform.translation()
         left_foot_pose = np.hstack((l_foot_orientation, l_foot_position))
+
         r_foot_transform = self.rsole.getTransform(withRespectTo=dart.dynamics.Frame.World(), inCoordinatesOf=dart.dynamics.Frame.World())
         r_foot_orientation = get_rotvec(r_foot_transform.rotation())
         r_foot_position = r_foot_transform.translation()
@@ -213,7 +259,8 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         force = np.zeros(3)
         for contact in world.getLastCollisionResult().getContacts():
             force += contact.force
-
+            #print(contact.point)
+        #print("endfor")
         # compute zmp
         zmp = np.zeros(3)
         zmp[2] = com_position[2] - force[2] / (self.hrp4.getMass() * self.params['g'] / self.params['h'])
@@ -230,7 +277,9 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             zmp[0] = np.clip(zmp[0], midpoint[0] - 0.3, midpoint[0] + 0.3)
             zmp[1] = np.clip(zmp[1], midpoint[1] - 0.3, midpoint[1] + 0.3)
             zmp[2] = np.clip(zmp[2], midpoint[2] - 0.3, midpoint[2] + 0.3)
-
+        hw=self.compute_angular_momentum()
+        
+        
         # create state dict
         return {
             'lfoot': {'pos': left_foot_pose,
@@ -253,7 +302,9 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
                       'acc': np.zeros(self.params['dof'])},
             'zmp'  : {'pos': zmp,
                       'vel': np.zeros(3),
-                      'acc': np.zeros(3)}
+                      'acc': np.zeros(3)},
+            'hw'   : {'val':hw},
+            'theta_hat':{'val':np.zeros(3)}       
         }
 
 if __name__ == "__main__":

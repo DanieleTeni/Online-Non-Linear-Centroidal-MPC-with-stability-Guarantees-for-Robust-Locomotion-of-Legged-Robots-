@@ -109,3 +109,30 @@ class FootTrajectoryGenerator:
         support_foot: support_data,
         swing_foot: swing_data
     }
+  
+
+
+
+
+  def generate_whole_feet_trajectories_at_time(self, duration = 2500 ,time = 0):
+    foot_reference=[]
+    for t in range(time,duration):
+       foot_reference.append(self.generate_feet_trajectories_at_time(t))
+    return foot_reference
+  
+  def foot_reference(self,duration=2500):
+     l_pos,r_pos,l_vel,r_vel=np.zeros((3,duration)),np.zeros((3,duration)),np.zeros((3,duration)),np.zeros((3,duration))
+     
+     for i in range (duration):
+      l_pos[:,i]=self.generate_feet_trajectories_at_time(i)['lfoot']['pos'][3:6]
+      r_pos[:,i]=self.generate_feet_trajectories_at_time(i)['rfoot']['pos'][3:6]
+      l_vel[:,i]=self.generate_feet_trajectories_at_time(i)['lfoot']['vel'][3:6]
+      r_vel[:,i]=self.generate_feet_trajectories_at_time(i)['rfoot']['vel'][3:6]
+
+     foot ={  'lfoot': {'pos': l_pos,
+                      'vel': l_vel,},
+              'rfoot': {'pos': r_pos,
+                      'vel': r_vel 
+                      
+                      }}
+     return foot
