@@ -10,24 +10,45 @@ from mpl_toolkits.mplot3d import Axes3D
 def compute_knot(foot_tra,planner):
         knot_x=[]
         knot_y=[ ]
-        sequence=[]#[0]
+        sequence_x=[]#[0]
+        sequence_y=[]
         knot_x.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][3])/2)
         knot_y.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][4])/2)
-        for i in range(1,(len(planner.plan)-1)*100):
+        
+        knot_x.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][3])/2)
+        contact=planner.plan[1]['foot_id']
+        knot_y.append(foot_tra.generate_feet_trajectories_at_time(0)[contact]['pos'][4])
+        #knot_y.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][4])/2)
+        sequence_x.append(200)
+        sequence_y.append(200)
+        for i in range(200,(len(planner.plan)-1)*100):
          if (i-271)%100==0 :
           knot_x.append((foot_tra.generate_feet_trajectories_at_time(i)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(i)['rfoot']['pos'][3])/2)
-          knot_y.append((foot_tra.generate_feet_trajectories_at_time(i)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(i)['rfoot']['pos'][4])/2)
-          sequence.append(i)
+          sequence_x.append(i)
+
+          idx_y=planner.get_step_index_at_time(i)
+          print(i)
+          print("step id")
+          print(idx_y)
+          contact=planner.plan[idx_y+1]['foot_id']
+          knot_y.append(foot_tra.generate_feet_trajectories_at_time(i)[contact]['pos'][4])
+          sequence_y.append(i)
+          knot_y.append(foot_tra.generate_feet_trajectories_at_time(i)[contact]['pos'][4])
+          #knot_y.append((foot_tra.generate_feet_trajectories_at_time(i)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(i)['rfoot']['pos'][4])/2)
+          #sequence_y.append(i)
+          sequence_y.append(i+30)
+          
         t=(len(planner.plan)-1)*100
         knot_x.append((foot_tra.generate_feet_trajectories_at_time(t)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(t)['rfoot']['pos'][3])/2)
         knot_y.append((foot_tra.generate_feet_trajectories_at_time(t)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(t)['rfoot']['pos'][4])/2)
-        sequence.append(t)
-        plot_spline(knot_x)
-        return knot_x,knot_y,sequence
+        sequence_x.append(t)
+        sequence_y.append(t)
+        plot_spline(knot_y)
+        return knot_x,knot_y,sequence_x,sequence_y
 
 
 def references(foot_tra,planner,SHOW_PLOT=1):
-         knot_x,knot_y,sequence=compute_knot(foot_tra,planner)
+         knot_x,knot_y,sequence_x,sequence_y=compute_knot(foot_tra,planner)
          co_x = quintic_spline(knot_x)  # Get optimal coefficients from solver
          co_x = np.array(co_x.full()) 
          co_y = quintic_spline(knot_y)  # Get optimal coefficients from solver
@@ -35,24 +56,24 @@ def references(foot_tra,planner,SHOW_PLOT=1):
       
         #plot_spline(self.knot_x)
         #plot_spline(self.knot_y)
-         ref_pos_x=built_the_reference(knot_x,sequence,co_x)
+         ref_pos_x=built_the_reference(knot_x,sequence_x,co_x)
         #for i,num in enumerate(self.sequence) :
             #print(ref[num])
             #print(self.knot_x[i])
         #print(ref[2300:2400])
          ref_pos_x = np.concatenate(ref_pos_x).tolist()
-         ref_vel_x=built_the_velocity(knot_x,sequence,co_x)
+         ref_vel_x=built_the_velocity(knot_x,sequence_x,co_x)
          ref_vel_x = np.concatenate(ref_vel_x).tolist()
-         ref_acc_x=built_the_acceleration(knot_x,sequence,co_x)
+         ref_acc_x=built_the_acceleration(knot_x,sequence_x,co_x)
          ref_acc_x = np.concatenate(ref_acc_x).tolist()
          
 
-         ref_pos_y=built_the_reference(knot_y,sequence,co_y)
+         ref_pos_y=built_the_reference(knot_y,sequence_y,co_y)
          ref_pos_y = np.concatenate(ref_pos_y).tolist()
-         ref_vel_y=built_the_velocity(knot_y,sequence,co_y)
+         ref_vel_y=built_the_velocity(knot_y,sequence_y,co_y)
          ref_vel_y = np.concatenate(ref_vel_y).tolist()
          
-         ref_acc_y=built_the_acceleration(knot_y,sequence,co_y)
+         ref_acc_y=built_the_acceleration(knot_y,sequence_y,co_y)
          ref_acc_y = np.concatenate(ref_acc_y).tolist()
 
          ref_pos_z = np.full(len(ref_pos_x),0.72)
@@ -67,7 +88,7 @@ def references(foot_tra,planner,SHOW_PLOT=1):
            easy_plot(ref_pos_y,"ref_plot_y")
            easy_plot(ref_vel_y,"ref_vel_y_y")
            easy_plot(ref_acc_y,"ref_acc_y")
-           easy_plot_2d(ref_pos_x, ref_pos_y)
+           #easy_plot_2d(ref_pos_x, ref_pos_y)
          ref = {
                   "pos_x": ref_pos_x,
                    "vel_x": ref_vel_x,

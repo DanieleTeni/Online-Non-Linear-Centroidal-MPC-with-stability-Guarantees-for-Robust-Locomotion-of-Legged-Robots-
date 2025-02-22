@@ -5,7 +5,7 @@ class centroidal_mpc:
   def __init__(self, initial, footstep_planner, params, CoM_ref, contact_trj_l, contact_trj_r):
     # parameters
     self.params = params
-    self.N = params['N']
+    self.N = params['N']-70
     self.delta = params['world_time_step']
     self.h = params['h']
     self.eta = params['eta']
@@ -17,9 +17,9 @@ class centroidal_mpc:
     self.initial = initial
     self.footstep_planner = footstep_planner
     self.sigma = lambda t, t0, t1: np.clip((t - t0) / (t1 - t0), 0, 1) # piecewise linear sigmoidal function
-    self.k1=0.1
-    self.k2=1000
-    mu= 0.1
+    self.k1=15
+    self.k2=0.5
+    mu= 0.5
     d= params['foot_size']/2
 
     self.A=cs.DM([[ 1, 0, 0, 0, 0, -d],
@@ -139,28 +139,36 @@ class centroidal_mpc:
     force_avg = self.opti_force_contact_l[:,i]*self.opti_contact_left[i]+self.opti_force_contact_r[:,i]*self.opti_contact_right[i]
     
     #force_avg=force_avg/(2*self.N)
-    force_avg=force_avg/(2)
+    force_avg=force_avg/(1)
     print("size of force avg")
     print(force_avg.shape)
     gravity = cs.GenDM_zeros(3)
     gravity[2]=-self.g
     #An: Adaptive force u_n
-    u_n= self.k1*self.k1*z1-(self.k1+self.k2)*z2- gravity -self.opti_thetahat[:,0]
+    u_n= self.k1*self.k1*z1-(self.k1+self.k2)*z2- gravity -self.opti_thetahat[:,0]+self.opti_com_ref[6:9,0]
 
     #An: Lyapunov stability constrains
     #for i in range(self.N):
     #i=0
-    self.opt.subject_to(-z1.T@(self.k1*z1)-z2.T@(self.k2*z2)+z1.T@z2+z2.T@(force_avg-u_n)<=0.0)
+    self.opt.subject_to(-z1.T@(self.k1*z1)-z2.T@(self.k2*z2)+z1.T@z2+z2.T@(force_avg-u_n)<0.0)
 
     #An: angular momentum constraint:
     #for i in range(self.N):
     i=1
-    self.opt.subject_to(self.opti_hw[:,i].T@self.opti_hw[:,i]<=100)
+    #self.opt.subject_to(self.opti_hw[:,i].T@self.opti_hw[:,i]<=1000)
     
     #An: Force in z must always be positive
     for i in range(self.N):
       self.opt.subject_to(self.opti_force_contact_l[2,i]>=0)
       self.opt.subject_to(self.opti_force_contact_r[2,i]>=0)
+
+    # #An: Force in z must always below some bounded value 
+    # for i in range(self.N):
+    #   self.opt.subject_to(self.opti_force_contact_l[2,i]*self.opti_contact_left[i]<=600)
+    #   self.opt.subject_to(self.opti_force_contact_r[2,i]*self.opti_contact_right[i]<=600)  
+    for i in range(self.N):
+      self.opt.subject_to(self.opti_CoM[2,i]<=0.75)
+      
     
     #An: Test friction cone without rotation matrix -> need to add foot rotation matrix
     for i in range(self.N):
@@ -207,10 +215,10 @@ class centroidal_mpc:
     
     #An: Define the cost function
     # still lack of the components to minimize the deviation of forces at the foot vertices (aka foot corners)
-    cost = 1000*cs.sumsqr(self.opti_hw[:,1:]) + \
+    cost = 1*cs.sumsqr(self.opti_hw[:,1:]) + \
            1*cs.sumsqr(self.opti_CoM[0,1:]-self.opti_com_ref[0,:])+\
            1*cs.sumsqr(self.opti_CoM[1,1:]-self.opti_com_ref[1,:])+\
-           10000*cs.sumsqr(self.opti_CoM[2,1:]-self.opti_com_ref[2,:])+\
+           2000*cs.sumsqr(self.opti_CoM[2,1:]-self.opti_com_ref[2,:])+\
            1000*cs.sumsqr(self.opti_pos_contact_l[:,1:]-self.opti_pos_contact_l_ref)+\
            1000*cs.sumsqr(self.opti_pos_contact_r[:,1:]-self.opti_pos_contact_r_ref)
            
@@ -248,6 +256,8 @@ class centroidal_mpc:
     print(self.current_state[12:15])
     print(self.current_state[15:18])
     #print("Right foot current state:")
+    print("hw current state:")
+    print(self.current_state[6:9])
     
     self.opt.set_value(self.opti_x0_param, self.current_state)
 
@@ -256,7 +266,7 @@ class centroidal_mpc:
     contact_status_l=np.empty((0, 1))
     contact_status_r=np.empty((0, 1))
     for i in range(self.N):
-      contact_status = self.footstep_planner.get_phase_at_time(t+i+1)
+      contact_status = self.footstep_planner.get_phase_at_time(t+i)
       #'ds'
       #print("contact_status:")
       #print(contact_status)
