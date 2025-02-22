@@ -5,7 +5,7 @@ from utils import *
 class InverseDynamics:
     def __init__(self, robot, redundant_dofs, foot_size=0.1, µ=0.5):
         self.robot = robot
-        self.dofs = self.robot.getNumDofs()
+        self.dofs = self.robot.getNumDofs()#An: degree of freedom, not number of joints
         self.d = foot_size / 2.
         self.µ = µ
 

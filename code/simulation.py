@@ -27,7 +27,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             'world_time_step': world.getTimeStep(),
             'ss_duration': int(0.7/world.getTimeStep()),
             'ds_duration': int(0.3/world.getTimeStep()),
-            'first_swing': 'lfoot',
+            'first_swing': 'rfoot',
             'µ': 0.5,
             'N': 100,
             'dof': self.hrp4.getNumDofs(),
@@ -85,7 +85,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.id = id.InverseDynamics(self.hrp4, redundant_dofs)
 
              # initialize footstep planner
-        reference = [(0.1, 0., 0.2)] * 5 + [(0.1, 0., -0.1)] * 10 + [(0.1, 0., 0.)] * 10
+        reference = [(0.1, 0., 0)] * 5 + [(0.1, 0., -0.1)] * 10 + [(0.1, 0., 0.)] * 10
         self.footstep_planner = footstep_planner.FootstepPlanner(
             reference,
             self.initial['lfoot']['pos'],
@@ -177,22 +177,22 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.current = self.retrieve_state() 
         #print(self.current)
         #update kalman filter
-        u = np.array([self.desired['zmp']['vel'][0], self.desired['zmp']['vel'][1], self.desired['zmp']['vel'][2]])
-        self.kf.predict(u)
-        x_flt, _ = self.kf.update(np.array([self.current['com']['pos'][0], self.current['com']['vel'][0], self.current['zmp']['pos'][0], \
-                                            self.current['com']['pos'][1], self.current['com']['vel'][1], self.current['zmp']['pos'][1], \
-                                            self.current['com']['pos'][2], self.current['com']['vel'][2], self.current['zmp']['pos'][2]]))
+        # u = np.array([self.desired['zmp']['vel'][0], self.desired['zmp']['vel'][1], self.desired['zmp']['vel'][2]])
+        # self.kf.predict(u)
+        # x_flt, _ = self.kf.update(np.array([self.current['com']['pos'][0], self.current['com']['vel'][0], self.current['zmp']['pos'][0], \
+        #                                     self.current['com']['pos'][1], self.current['com']['vel'][1], self.current['zmp']['pos'][1], \
+        #                                     self.current['com']['pos'][2], self.current['com']['vel'][2], self.current['zmp']['pos'][2]]))
         
-        # update current state using kalman filter output
-        self.current['com']['pos'][0] = x_flt[0]
-        self.current['com']['vel'][0] = x_flt[1]
-        self.current['zmp']['pos'][0] = x_flt[2]
-        self.current['com']['pos'][1] = x_flt[3]
-        self.current['com']['vel'][1] = x_flt[4]
-        self.current['zmp']['pos'][1] = x_flt[5]
-        self.current['com']['pos'][2] = x_flt[6]
-        self.current['com']['vel'][2] = x_flt[7]
-        self.current['zmp']['pos'][2] = x_flt[8]
+        # # update current state using kalman filter output
+        # self.current['com']['pos'][0] = x_flt[0]
+        # self.current['com']['vel'][0] = x_flt[1]
+        # self.current['zmp']['pos'][0] = x_flt[2]
+        # self.current['com']['pos'][1] = x_flt[3]
+        # self.current['com']['vel'][1] = x_flt[4]
+        # self.current['zmp']['pos'][1] = x_flt[5]
+        # self.current['com']['pos'][2] = x_flt[6]
+        # self.current['com']['vel'][2] = x_flt[7]
+        # self.current['zmp']['pos'][2] = x_flt[8]
 
         # get references using mpc SOLVE THE MPC
         #lip_state, contact = self.mpc.solve(self.current, self.time)
@@ -227,7 +227,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             for key in ['pos', 'vel', 'acc']:
                 self.desired[foot][key] = feet_trajectories[foot][key]
         
-        print("right foot position trj:")
+        print("left foot position trj:")
         print(self.desired['lfoot']['pos'][3:6])
 
         # set torso and base references to the average of the feet

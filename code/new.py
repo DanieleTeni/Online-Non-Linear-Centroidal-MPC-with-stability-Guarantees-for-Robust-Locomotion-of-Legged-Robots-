@@ -22,7 +22,7 @@ def compute_knot(foot_tra,planner):
         knot_x.append((foot_tra.generate_feet_trajectories_at_time(t)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(t)['rfoot']['pos'][3])/2)
         knot_y.append((foot_tra.generate_feet_trajectories_at_time(t)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(t)['rfoot']['pos'][4])/2)
         sequence.append(t)
-        plot_spline(knot_y)
+        plot_spline(knot_x)
         return knot_x,knot_y,sequence
 
 
