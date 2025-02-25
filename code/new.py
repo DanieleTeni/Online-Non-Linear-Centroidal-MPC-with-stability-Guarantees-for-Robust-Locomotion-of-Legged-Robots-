@@ -17,7 +17,7 @@ def compute_knot(foot_tra,planner):
         
         knot_x.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][3])/2)
         contact=planner.plan[1]['foot_id']
-        knot_y.append(foot_tra.generate_feet_trajectories_at_time(0)[contact]['pos'][4])
+        knot_y.append(foot_tra.generate_feet_trajectories_at_time(0)[contact]['pos'][4]*0.6)
         #knot_y.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][4])/2)
         sequence_x.append(200)
         sequence_y.append(200)
@@ -31,9 +31,9 @@ def compute_knot(foot_tra,planner):
           print("step id")
           print(idx_y)
           contact=planner.plan[idx_y+1]['foot_id']
-          knot_y.append(foot_tra.generate_feet_trajectories_at_time(i)[contact]['pos'][4])
-          sequence_y.append(i)
-          knot_y.append(foot_tra.generate_feet_trajectories_at_time(i)[contact]['pos'][4])
+          #knot_y.append(foot_tra.generate_feet_trajectories_at_time(i)[contact]['pos'][4])
+          #sequence_y.append(i)
+          knot_y.append(foot_tra.generate_feet_trajectories_at_time(i)[contact]['pos'][4]*0.6)
           #knot_y.append((foot_tra.generate_feet_trajectories_at_time(i)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(i)['rfoot']['pos'][4])/2)
           #sequence_y.append(i)
           sequence_y.append(i+30)

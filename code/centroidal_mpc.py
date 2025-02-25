@@ -5,7 +5,7 @@ class centroidal_mpc:
   def __init__(self, initial, footstep_planner, params, CoM_ref, contact_trj_l, contact_trj_r):
     # parameters
     self.params = params
-    self.N = params['N']-70
+    self.N = params['N']-90
     self.delta = params['world_time_step']
     self.h = params['h']
     self.eta = params['eta']
@@ -17,7 +17,7 @@ class centroidal_mpc:
     self.initial = initial
     self.footstep_planner = footstep_planner
     self.sigma = lambda t, t0, t1: np.clip((t - t0) / (t1 - t0), 0, 1) # piecewise linear sigmoidal function
-    self.k1=15
+    self.k1=20
     self.k2=0.5
     mu= 0.5
     d= params['foot_size']/2
@@ -155,7 +155,7 @@ class centroidal_mpc:
     #An: angular momentum constraint:
     #for i in range(self.N):
     i=1
-    #self.opt.subject_to(self.opti_hw[:,i].T@self.opti_hw[:,i]<=1000)
+    #self.opt.subject_to(self.opti_hw[:,i].T@self.opti_hw[:,i]<=20)
     
     #An: Force in z must always be positive
     for i in range(self.N):
@@ -167,7 +167,7 @@ class centroidal_mpc:
     #   self.opt.subject_to(self.opti_force_contact_l[2,i]*self.opti_contact_left[i]<=600)
     #   self.opt.subject_to(self.opti_force_contact_r[2,i]*self.opti_contact_right[i]<=600)  
     for i in range(self.N):
-      self.opt.subject_to(self.opti_CoM[2,i]<=0.75)
+      self.opt.subject_to(self.opti_CoM[2,i]<=0.76)
       
     
     #An: Test friction cone without rotation matrix -> need to add foot rotation matrix
@@ -215,12 +215,12 @@ class centroidal_mpc:
     
     #An: Define the cost function
     # still lack of the components to minimize the deviation of forces at the foot vertices (aka foot corners)
-    cost = 1*cs.sumsqr(self.opti_hw[:,1:]) + \
+    cost = 10000*cs.sumsqr(self.opti_hw[:,1:]) + \
            1*cs.sumsqr(self.opti_CoM[0,1:]-self.opti_com_ref[0,:])+\
            1*cs.sumsqr(self.opti_CoM[1,1:]-self.opti_com_ref[1,:])+\
            2000*cs.sumsqr(self.opti_CoM[2,1:]-self.opti_com_ref[2,:])+\
-           1000*cs.sumsqr(self.opti_pos_contact_l[:,1:]-self.opti_pos_contact_l_ref)+\
-           1000*cs.sumsqr(self.opti_pos_contact_r[:,1:]-self.opti_pos_contact_r_ref)
+           1000*cs.sumsqr((self.opti_pos_contact_l[:,1:]-self.opti_pos_contact_l_ref)*self.opti_contact_left[i])+\
+           1000*cs.sumsqr((self.opti_pos_contact_r[:,1:]-self.opti_pos_contact_r_ref)*self.opti_contact_right[i])
            
 
     self.opt.minimize(cost)
@@ -249,8 +249,9 @@ class centroidal_mpc:
     
     
     #An: Update the initial state contrainst
-    print("Planned contact ref left")
+    print("Left- right Planned foot ref ")
     print(self.contact_trj_l[t][0]['pos'][3:6])
+    print(self.contact_trj_r[t][0]['pos'][3:6])
 
     print("Left -right foot current state:")
     print(self.current_state[12:15])
@@ -330,8 +331,12 @@ class centroidal_mpc:
     pos_contact_ref_r = self.pos_contact_ref_r[t+0:t+0+self.N].T
 
     for i in range(self.N):
-      self.opt.set_value(self.opti_pos_contact_l_ref[:,i],self.contact_trj_l[t+i+1][0]['pos'][3:6])
-      self.opt.set_value(self.opti_pos_contact_r_ref[:,i],self.contact_trj_r[t+i+1][0]['pos'][3:6])
+      self.opt.set_value(self.opti_pos_contact_l_ref[:,i],pos_contact_ref_l[:,i])
+      self.opt.set_value(self.opti_pos_contact_r_ref[:,i],pos_contact_ref_r[:,i])
+
+    # for i in range(self.N):
+    #   self.opt.set_value(self.opti_pos_contact_l_ref[:,i],self.contact_trj_l[t+i+1][0]['pos'][3:6])
+    #   self.opt.set_value(self.opti_pos_contact_r_ref[:,i],self.contact_trj_r[t+i+1][0]['pos'][3:6])
     # solve optimization problem
     
     # self.opt.set_value(self.zmp_x_mid_param, mc_x)
