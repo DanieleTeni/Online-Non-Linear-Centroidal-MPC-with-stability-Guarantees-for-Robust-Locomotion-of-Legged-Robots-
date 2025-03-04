@@ -46,7 +46,7 @@ class QPSolver:
         self.opti = ca.Opti('conic')
         self.x = self.opti.variable(self.n_vars)
 
-        # objective function: (1/2) * x.T @ H @ x + F.T @ x
+        # objective function: (1/2) * x.T @ H @ x + F.T @ x  #An: x^2+2x, the cost in the slide 6, page 25
         self.F_ = self.opti.parameter(self.n_vars)
         self.H_ = self.opti.parameter(self.n_vars, self.n_vars)
         objective = 0.5 * self.x.T @ self.H_ @ self.x + self.F_.T @ self.x

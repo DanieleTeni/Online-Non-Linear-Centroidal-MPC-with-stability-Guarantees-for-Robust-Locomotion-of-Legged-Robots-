@@ -88,8 +88,8 @@ class FootstepPlanner:
         pos_right=[]
         for i in range(sim_time):
             index= self.get_step_index_at_time(i)
-            if i==200-1 :
-                print("index:",index)
+            # if i==200-1 :
+            #     print("index:",index)
                 
             if index<2:
                 if first_swing == 'lfoot':

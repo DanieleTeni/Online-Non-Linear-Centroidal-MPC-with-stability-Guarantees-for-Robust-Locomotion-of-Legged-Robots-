@@ -21,16 +21,16 @@ class Logger():
         self.plot_info = [
             {'axis': 0, 'batch': 'desired', 'item': 'com', 'level': 'pos', 'dim': 0, 'color': 'blue' , 'style': '-' },
             {'axis': 0, 'batch': 'current', 'item': 'com', 'level': 'pos', 'dim': 0, 'color': 'blue' , 'style': '--'},
-            {'axis': 0, 'batch': 'desired', 'item': 'zmp', 'level': 'pos', 'dim': 0, 'color': 'green', 'style': '-' },
-            {'axis': 0, 'batch': 'current', 'item': 'zmp', 'level': 'pos', 'dim': 0, 'color': 'green', 'style': '--'},
+            {'axis': 0, 'batch': 'desired', 'item': 'hw', 'level': 'val', 'dim': 0, 'color': 'green', 'style': '-' },
+            {'axis': 0, 'batch': 'current', 'item': 'hw', 'level': 'val', 'dim': 0, 'color': 'green', 'style': '--'},
             {'axis': 1, 'batch': 'desired', 'item': 'com', 'level': 'pos', 'dim': 1, 'color': 'blue' , 'style': '-' },
             {'axis': 1, 'batch': 'current', 'item': 'com', 'level': 'pos', 'dim': 1, 'color': 'blue' , 'style': '--'},
-            {'axis': 1, 'batch': 'desired', 'item': 'zmp', 'level': 'pos', 'dim': 1, 'color': 'green', 'style': '-' },
-            {'axis': 1, 'batch': 'current', 'item': 'zmp', 'level': 'pos', 'dim': 1, 'color': 'green', 'style': '--'},
+            {'axis': 1, 'batch': 'desired', 'item': 'hw', 'level': 'val', 'dim': 1, 'color': 'green', 'style': '-' },
+            {'axis': 1, 'batch': 'current', 'item': 'hw', 'level': 'val', 'dim': 1, 'color': 'green', 'style': '--'},
             {'axis': 2, 'batch': 'desired', 'item': 'com', 'level': 'pos', 'dim': 2, 'color': 'blue' , 'style': '-' },
             {'axis': 2, 'batch': 'current', 'item': 'com', 'level': 'pos', 'dim': 2, 'color': 'blue' , 'style': '--'},
-            {'axis': 2, 'batch': 'desired', 'item': 'zmp', 'level': 'pos', 'dim': 2, 'color': 'green', 'style': '-' },
-            {'axis': 2, 'batch': 'current', 'item': 'zmp', 'level': 'pos', 'dim': 2, 'color': 'green', 'style': '--'},
+            {'axis': 2, 'batch': 'desired', 'item': 'hw', 'level': 'val', 'dim': 2, 'color': 'green', 'style': '-' },
+            {'axis': 2, 'batch': 'current', 'item': 'hw', 'level': 'val', 'dim': 2, 'color': 'green', 'style': '--'},
         ]
 
         plot_num = np.max([item['axis'] for item in self.plot_info]) + 1
