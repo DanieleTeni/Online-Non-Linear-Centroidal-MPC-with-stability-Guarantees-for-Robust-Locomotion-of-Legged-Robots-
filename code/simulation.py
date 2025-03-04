@@ -4,8 +4,8 @@ import copy
 from utils import *
 import os
 import ismpc
-import centroidal_mpc
-import footstep_planner
+import centroidal_mpc_vertices as centroidal_mpc
+import footstep_planner_vertices as footstep_planner
 import inverse_dynamics as id
 import filter
 import foot_trajectory_generator as ftg
@@ -42,6 +42,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.rsole = hrp4.getBodyNode('r_sole')
         self.torso = hrp4.getBodyNode('torso')
         self.base  = hrp4.getBodyNode('body')
+        self.l_hip_p= hrp4.getBodyNode('L_HIP_P_LINK')
 
         for i in range(hrp4.getNumJoints()):
             joint = hrp4.getJoint(i)
@@ -85,7 +86,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.id = id.InverseDynamics(self.hrp4, redundant_dofs)
 
              # initialize footstep planner
-        reference = [(0.07, 0., 0)] * 5 + [(0.05, 0., -0.0)] * 10 + [(0.05, 0., 0.)] * 10
+        reference = [(0.1, 0., 0)] * 5 + [(0.1, 0., -0.0)] * 10 + [(0.1, 0., 0.)] * 10
         self.footstep_planner = footstep_planner.FootstepPlanner(
             reference,
             self.initial['lfoot']['pos'],
@@ -121,7 +122,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         #self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner,1)  FOR SEE GRAHP
         
              # initialize MPC controller
-        self.contact_ref= self.footstep_planner.contacts_ref
+        self.contact_ref= self.footstep_planner.position_contacts_ref
         # print("contact Ref")
         # print(self.contact_ref['contact_left'][199])
         # print(self.contact_ref['contact_left'][201])
@@ -300,12 +301,24 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             zmp[0] = np.clip(zmp[0], midpoint[0] - 0.3, midpoint[0] + 0.3)
             zmp[1] = np.clip(zmp[1], midpoint[1] - 0.3, midpoint[1] + 0.3)
             zmp[2] = np.clip(zmp[2], midpoint[2] - 0.3, midpoint[2] + 0.3)
-        
+        print("Torso angl m")
+        print(self.torso.getAngularMomentum(com_position))
+        print("Base angl m")
+        print(self.base.getAngularMomentum(com_position))
+        print("Lfoot angl m")
+        print(self.lsole.getAngularMomentum(com_position))
+        print("Rfoot angl m")
+        print(self.rsole.getAngularMomentum(com_position))
+        print("L_hip_p angl m")
+        print(self.l_hip_p.getAngularMomentum(com_position))
+
+
         # Get angular momentum
         angular_momentum_at_com=    self.torso.getAngularMomentum(com_position)+\
-                                    self.base.getAngularMomentum(com_position)+\
-                                    self.lsole.getAngularMomentum(com_position)+\
-                                    self.rsole.getAngularMomentum(com_position)
+                                    self.base.getAngularMomentum(com_position)*1+\
+                                    self.lsole.getAngularMomentum(com_position)*0+\
+                                    self.rsole.getAngularMomentum(com_position)*0+\
+                                    self.l_hip_p.getAngularMomentum(com_position)
                                     
         
         # create state dict

@@ -133,6 +133,9 @@ class centroidal_mpc:
     #An: Formulate the change coordinate, constraint only in the first instance
     z1= self.opti_CoM[:,1]-self.opti_com_ref[0:3,0]
     z2= self.k1*z1+self.opti_dCoM[:,1] -self.opti_com_ref[3:6,0]
+
+    # z1= self.opti_CoM[:,1:]-self.opti_com_ref[0:3,:]
+    # z2= self.k1*z1+self.opti_dCoM[:,1:] -self.opti_com_ref[3:6,:]
     
     #for i in range(self.N):
     i=0
@@ -146,16 +149,23 @@ class centroidal_mpc:
     gravity[2]=-self.g
     #An: Adaptive force u_n
     u_n= self.k1*self.k1*z1-(self.k1+self.k2)*z2- gravity -self.opti_thetahat[:,0]+self.opti_com_ref[6:9,0]
-
-    #An: Lyapunov stability constrains
+    # for i in range(self.N):
+    #   sum=self.opti_contact_left[i]+self.opti_contact_right[i]
+    #   un_l=(u_n[i]/sum)*self.opti_contact_left[i]
+    #   un_r=(u_n[i]/sum)*self.opti_contact_right[i]
+    #   self.opt.subject_to(self.opti_force_contact_l[:,i]==un_l)
+    #   self.opt.subject_to(self.opti_force_contact_r[:,i]==un_r)
+     #An: Lyapunov stability constrains
     #for i in range(self.N):
-    #i=0
-    self.opt.subject_to(-z1.T@(self.k1*z1)-z2.T@(self.k2*z2)+z1.T@z2+z2.T@(force_avg-u_n)<0.0)
-
+    i=0
+    self.opt.subject_to(-z1.T@(self.k1*z1)-z2.T@(self.k2*z2)+z1.T@z2+z2.T@(force_avg+u_n)<0.0)
+    
+   
+    
     #An: angular momentum constraint:
-    #for i in range(self.N):
-    i=1
-    #self.opt.subject_to(self.opti_hw[:,i].T@self.opti_hw[:,i]<=20)
+    for i in range(self.N):
+    #i=1
+      self.opt.subject_to(self.opti_hw[:,i].T@self.opti_hw[:,i]<=20)
     
     #An: Force in z must always be positive
     for i in range(self.N):
@@ -215,7 +225,7 @@ class centroidal_mpc:
     
     #An: Define the cost function
     # still lack of the components to minimize the deviation of forces at the foot vertices (aka foot corners)
-    cost = 10000*cs.sumsqr(self.opti_hw[:,1:]) + \
+    cost = 50000*cs.sumsqr(self.opti_hw[:,1:]) + \
            1*cs.sumsqr(self.opti_CoM[0,1:]-self.opti_com_ref[0,:])+\
            1*cs.sumsqr(self.opti_CoM[1,1:]-self.opti_com_ref[1,:])+\
            2000*cs.sumsqr(self.opti_CoM[2,1:]-self.opti_com_ref[2,:])+\
@@ -364,6 +374,9 @@ class centroidal_mpc:
     model_force_l= self.u[0:3]
     model_force_r= self.u[3:6]
 
+    model_torque_l= self.u[6:9]
+    model_torque_r= self.u[9:12]
+
     # print("mpc result")
     # # print("theta_hat")
     # # print(self.model_state['theta_hat']['val'][0])
@@ -376,10 +389,12 @@ class centroidal_mpc:
     # print("com_vel")
     # print(self.model_state['com']['vel'])
 
-    print("Force_l")
+    print("Force_l-r")
     print(model_force_l)
-    print("Force_r")
     print(model_force_r)
+    print("Torque_l-r")
+    print(model_torque_l)
+    print(model_torque_r)
     # create output LIP state
     # Change the index to take out the result bcz of different order defined in the dynamics model
     self.model_state['com']['pos'] = np.array([self.x[0], self.x[1], self.x[2]])
@@ -401,20 +416,20 @@ class centroidal_mpc:
 
     return self.model_state, contact
   
-  def generate_moving_constraint(self, t):
-    mc_x = np.full(self.N, (self.initial['lfoot']['pos'][3] + self.initial['rfoot']['pos'][3]) / 2.)
-    mc_y = np.full(self.N, (self.initial['lfoot']['pos'][4] + self.initial['rfoot']['pos'][4]) / 2.)
-    time_array = np.array(range(t, t + self.N))
-    for j in range(len(self.footstep_planner.plan) - 1):
-      fs_start_time = self.footstep_planner.get_start_time(j)
-      ds_start_time = fs_start_time + self.footstep_planner.plan[j]['ss_duration']
-      fs_end_time = ds_start_time + self.footstep_planner.plan[j]['ds_duration']
-      fs_current_pos = self.footstep_planner.plan[j]['pos'] if j > 0 else np.array([mc_x[0], mc_y[0]])
-      fs_target_pos = self.footstep_planner.plan[j + 1]['pos']
-      mc_x += self.sigma(time_array, ds_start_time, fs_end_time) * (fs_target_pos[0] - fs_current_pos[0])
-      mc_y += self.sigma(time_array, ds_start_time, fs_end_time) * (fs_target_pos[1] - fs_current_pos[1])
+  # def generate_moving_constraint(self, t):
+  #   mc_x = np.full(self.N, (self.initial['lfoot']['pos'][3] + self.initial['rfoot']['pos'][3]) / 2.)
+  #   mc_y = np.full(self.N, (self.initial['lfoot']['pos'][4] + self.initial['rfoot']['pos'][4]) / 2.)
+  #   time_array = np.array(range(t, t + self.N))
+  #   for j in range(len(self.footstep_planner.plan) - 1):
+  #     fs_start_time = self.footstep_planner.get_start_time(j)
+  #     ds_start_time = fs_start_time + self.footstep_planner.plan[j]['ss_duration']
+  #     fs_end_time = ds_start_time + self.footstep_planner.plan[j]['ds_duration']
+  #     fs_current_pos = self.footstep_planner.plan[j]['pos'] if j > 0 else np.array([mc_x[0], mc_y[0]])
+  #     fs_target_pos = self.footstep_planner.plan[j + 1]['pos']
+  #     mc_x += self.sigma(time_array, ds_start_time, fs_end_time) * (fs_target_pos[0] - fs_current_pos[0])
+  #     mc_y += self.sigma(time_array, ds_start_time, fs_end_time) * (fs_target_pos[1] - fs_current_pos[1])
 
-    return mc_x, mc_y, np.zeros(self.N)
+  #   return mc_x, mc_y, np.zeros(self.N)
   #An's function: Compute the centroidal dynamic using casadi symbolic variables
   #Input:
   # 1/ state: com, dcom, angularmomentum, thetahat, pos_contact_left, pos_contact_right
