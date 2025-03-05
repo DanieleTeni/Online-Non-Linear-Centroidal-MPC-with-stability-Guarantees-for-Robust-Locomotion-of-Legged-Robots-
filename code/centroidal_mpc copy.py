@@ -5,7 +5,7 @@ class centroidal_mpc:
   def __init__(self, initial, footstep_planner, params, CoM_ref, contact_trj_l, contact_trj_r):
     # parameters
     self.params = params
-    self.N = params['N']-90
+    self.N = params['N']-80
 
     self.delta = params['world_time_step']
     self.h = params['h']
@@ -155,11 +155,11 @@ class centroidal_mpc:
 
     # # An: angular momentum constraint:
     for i in range(self.N):
-      self.opt.subject_to(self.opti_hw[:,i].T@self.opti_hw[:,i]<=7)
-    # for i in range(1,self.N-1):
+      self.opt.subject_to(self.opti_hw[:,i].T@self.opti_hw[:,i]<=3)
+    for i in range(1,self.N-1):
     
       
-    #    self.opt.subject_to(self.opti_hw[:,i].T@self.opti_hw[:,i]<=2*self.opti_hw[:,i-1].T@self.opti_hw[:,i-1])
+       self.opt.subject_to(self.opti_hw[:,i].T@self.opti_hw[:,i]<=2*self.opti_hw[:,i-1].T@self.opti_hw[:,i-1])
 
     
     #An: Force in z must always be positive
@@ -220,17 +220,15 @@ class centroidal_mpc:
     
     #An: Define the cost function
     # still lack of the components to minimize the deviation of forces at the foot vertices (aka foot corners)
-    cost = 10000*cs.sumsqr(self.opti_hw[:,1:]) + \
+    cost = 1000*cs.sumsqr(self.opti_hw[:,1:]) + \
            1*cs.sumsqr(self.opti_CoM[0,1:]-self.opti_com_ref[0,:])+\
            1*cs.sumsqr(self.opti_CoM[1,1:]-self.opti_com_ref[1,:])+\
            20000*cs.sumsqr(self.opti_CoM[2,1:]-self.opti_com_ref[2,:])+\
-           1000*cs.sumsqr((self.opti_pos_contact_l[:,1:]-self.opti_pos_contact_l_ref)*self.opti_contact_left[i])+\
-           1000*cs.sumsqr((self.opti_pos_contact_r[:,1:]-self.opti_pos_contact_r_ref)*self.opti_contact_right[i])
+           100*cs.sumsqr((self.opti_pos_contact_l[:,1:]-self.opti_pos_contact_l_ref)*self.opti_contact_left[i])+\
+           100*cs.sumsqr((self.opti_pos_contact_r[:,1:]-self.opti_pos_contact_r_ref)*self.opti_contact_right[i])
            
 
     self.opt.minimize(cost)
-    self.centroidal_dynamics_in_t = 0.01*self.centroidal_dynamic(self.opti_state[:, 0],self.opti_com_ref[:,0],
-            self.opti_contact_left[0], self.opti_contact_right[0], self.U[:, 0] )
 
     #An: initialize the state space to collect the real time state value from the simulator
     self.current_state = np.zeros(3*6)
@@ -398,7 +396,7 @@ class centroidal_mpc:
     self.model_state['theta_hat']['val'] = np.array([self.x[9], self.x[10], self.x[11]])
     self.model_state['pos_contact_left']['val'] = np.array([self.x[12], self.x[13], self.x[14]])
     self.model_state['pos_contact_right']['val'] = (np.array([self.x[15], self.x[16], self.x[17]]))
-    self.model_state['hw']['dot'] = (np.cross(self.x[12:15]-self.x[0:3],model_force_l)+model_torque_l)*contact_status_l[0] + (np.cross(self.x[15:18]-self.x[0:3],model_force_r)+model_torque_r)*contact_status_r[0]
+    self.model_state['hw']['derivative'] = (np.cross(self.x[12:15]-self.x[0:3],model_force_l)+model_torque_l)*contact_status_l[0] + (np.cross(self.x[15:18]-self.x[0:3],model_force_r)+model_torque_r)*contact_status_r[0]
     # (np.cross(np.array([self.x[12], self.x[13], self.x[14]])-np.array([self.x[0], self.x[1], self.x[2]]),model_force_l)+model_torque_l)*contact_status_l[0]+ np.cross(np.array([self.x[15], self.x[16], self.x[17]])-np.array([self.x[0], self.x[1], self.x[2]]),model_force_r)*contact_status_r[0]
 
     print("CoM_acc")

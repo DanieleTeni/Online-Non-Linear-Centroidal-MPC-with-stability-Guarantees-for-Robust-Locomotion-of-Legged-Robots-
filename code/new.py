@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import math
 
 def compute_knot(foot_tra,planner):
         knot_x=[]
@@ -250,3 +251,28 @@ def easy_plot_2d(y1, y2, title="Trajectory"):
     plt.legend()  
     plt.show()
 
+
+def compoute_corner(foot_position, foot_orientation, foot_length=0.27, foot_width=0.15):
+    theta = foot_orientation[2] 
+    
+    half_length = foot_length / 2
+    half_width = foot_width / 2
+    
+    local_corners = np.array([
+        [ half_length,  half_width, 0], 
+        [-half_length,  half_width, 0],  
+        [-half_length, -half_width, 0],
+        [ half_length, -half_width, 0]   
+    ])
+    
+  
+    R = np.array([
+        [math.cos(theta), -math.sin(theta), 0],
+        [math.sin(theta),  math.cos(theta), 0],
+        [0,               0,               1]
+    ])
+    
+
+    global_corners = np.dot(local_corners, R.T) + foot_position
+    
+    return global_corners[0], global_corners[1], global_corners[2], global_corners[3]

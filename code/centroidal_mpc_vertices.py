@@ -89,6 +89,7 @@ class centroidal_mpc:
     self.rotvec_contact_ref_l = self.pose_contact_ref_l[:, 0:3]  # Rotation vector [rx, ry, rz]
     self.rotvec_contact_ref_r = self.pose_contact_ref_r[:, 0:3]  # Rotation vector [rx, ry, rz]
 
+
     with open("MPC_pose_contact_ref.txt", "w") as file:
         for i in range(len(self.pose_contact_ref_l)):  # Loop through all time steps
             # Extract rotation vector and position for the left foot
