@@ -21,7 +21,7 @@ class centroidal_mpc:
     self.sigma = lambda t, t0, t1: np.clip((t - t0) / (t1 - t0), 0, 1) # piecewise linear sigmoidal function
     self.debug_folder= "Debug"
     #Change of coordinates Gains
-    self.k1=1
+    self.k1=5
     self.k2=0.5
 
     #To build the Non-slippage constraints
@@ -199,24 +199,24 @@ class centroidal_mpc:
 
     
     for i in range(self.N):        
-      self.z1_mat[:,i] = self.opti_state[0:3,i]-self.opti_com_ref[0:3,i]
-      self.z2_mat[:,i] = self.k1*(self.z1_mat[:,i])+(self.opti_state[3:6,i]-self.opti_com_ref[3:6,i])
+      self.z1_mat[:,i] = self.opti_CoM[:,i+1]-self.opti_com_ref[0:3,i]
+      self.z2_mat[:,i] = self.k1*(self.z1_mat[:,i])+(self.opti_dCoM[:,i+1]-self.opti_com_ref[3:6,i])
 
     for i in range(self.N):
       self.u_n_mat[:,i]=-(self.k1+self.k2)*self.z2_mat[:,i]+\
-               self.k1*self.k1*self.z1_mat[:,i]-gravity+self.opti_com_ref[6:9,i]
+                        self.k1*self.k1*self.z1_mat[:,i]-gravity+self.opti_com_ref[6:9,i]-self.opti_thetahat[:,i]
 
     #Total linear force evaluated by the MPCs
     self.Vl_mat = cs.MX.zeros(3,self.N)
     self.Vr_mat = cs.MX.zeros(3,self.N)
     for i in range (self.N):
-      self.Vl_mat[:,i]=(self.opti_v1l_force[:,i]+self.opti_v2l_force[:,i]+self.opti_v3l_force[:,i]+self.opti_v4l_force[:,i])*self.opti_contact_left[i]
-      self.Vr_mat[:,i]=(self.opti_v1r_force[:,i]+self.opti_v2r_force[:,i]+self.opti_v3r_force[:,i]+self.opti_v4r_force[:,i])*self.opti_contact_right[i]
+      self.Vl_mat[:,i]=(self.opti_v1l_force[:,i]+self.opti_v2l_force[:,i]+self.opti_v3l_force[:,i]+self.opti_v4l_force[:,i])*self.opti_contact_left[i]/self.mass
+      self.Vr_mat[:,i]=(self.opti_v1r_force[:,i]+self.opti_v2r_force[:,i]+self.opti_v3r_force[:,i]+self.opti_v4r_force[:,i])*self.opti_contact_right[i]/self.mass
 
     #An: Lyapunov stability constrains
     for i in range(self.N-8):  
       self.opt.subject_to(-self.z1_mat[:,i].T@(self.k1*self.z1_mat[:,i])-self.z2_mat[:,i].T@(self.k2*self.z2_mat[:,i])+\
-                          self.z1_mat[:,i].T@self.z2_mat[:,i]+self.z2_mat[:,i].T@(self.Vl_mat[:,i]+self.Vr_mat[:,i]-self.u_n_mat[:,i])<=0.0)
+                          self.z1_mat[:,i].T@self.z2_mat[:,i]+self.z2_mat[:,i].T@((self.Vl_mat[:,i]+self.Vr_mat[:,i])-self.u_n_mat[:,i])<=0.0)
 
     #An: angular momentum constraint:
     for i in range(self.N-5):
@@ -226,26 +226,33 @@ class centroidal_mpc:
       self.opt.subject_to(self.opti_CoM[2,i]<=0.76)      
 
       num_vertices_for_a_foot=4
-      sum=num_vertices_for_a_foot*(self.opti_contact_left[i]+self.opti_contact_right[i])
-      self.u_n_partial_mat[:,i]=self.u_n_mat[:,i]/sum
+      # sum=num_vertices_for_a_foot*(self.opti_contact_left[i]+self.opti_contact_right[i])
+      # self.u_n_partial_mat[:,i]=self.u_n_mat[:,i]/sum
       
-      self.u_n_partial_leg_mat[:,i]=self.u_n_mat[:,i]/(self.opti_contact_left[i]+self.opti_contact_right[i])
-      self.u_n_partial_legl_mat[:,i]=self.u_n_partial_leg_mat[:,i]*self.opti_contact_left[i]
-      self.u_n_partial_legr_mat[:,i]=self.u_n_partial_leg_mat[:,i]*self.opti_contact_right[i]
+      # self.u_n_partial_leg_mat[:,i]=self.u_n_mat[:,i]/(self.opti_contact_left[i]+self.opti_contact_right[i])
+      # self.u_n_partial_legl_mat[:,i]=self.u_n_partial_leg_mat[:,i]*self.opti_contact_left[i]
+      # self.u_n_partial_legr_mat[:,i]=self.u_n_partial_leg_mat[:,i]*self.opti_contact_right[i]
 
       # Apply friction cone constraints for linear forces
-      self.opt.subject_to(self.A @ (self.mass*self.u_n_partial_mat[:,i]*0+self.opti_v1l_force[:,i]) * self.opti_contact_left[i] <= self.b)
-      self.opt.subject_to(self.A @ (self.mass*self.u_n_partial_mat[:,i]*0+self.opti_v2l_force[:,i]) * self.opti_contact_left[i] <= self.b)
-      self.opt.subject_to(self.A @ (self.mass*self.u_n_partial_mat[:,i]*0+self.opti_v3l_force[:,i]) * self.opti_contact_left[i] <= self.b)
-      self.opt.subject_to(self.A @ (self.mass*self.u_n_partial_mat[:,i]*0+self.opti_v4l_force[:,i]) * self.opti_contact_left[i] <= self.b)
+      self.opt.subject_to(self.A @ (self.opti_v1l_force[:,i]) * self.opti_contact_left[i] <= self.b)
+      self.opt.subject_to(self.A @ (self.opti_v2l_force[:,i]) * self.opti_contact_left[i] <= self.b)
+      self.opt.subject_to(self.A @ (self.opti_v3l_force[:,i]) * self.opti_contact_left[i] <= self.b)
+      self.opt.subject_to(self.A @ (self.opti_v4l_force[:,i]) * self.opti_contact_left[i] <= self.b)
       
-      self.opt.subject_to(self.A @ (self.mass*self.u_n_partial_mat[:,i]*0+self.opti_v1r_force[:,i]) * self.opti_contact_right[i] <= self.b)
-      self.opt.subject_to(self.A @ (self.mass*self.u_n_partial_mat[:,i]*0+self.opti_v2r_force[:,i]) * self.opti_contact_right[i] <= self.b)
-      self.opt.subject_to(self.A @ (self.mass*self.u_n_partial_mat[:,i]*0+self.opti_v3r_force[:,i]) * self.opti_contact_right[i] <= self.b)
-      self.opt.subject_to(self.A @ (self.mass*self.u_n_partial_mat[:,i]*0+self.opti_v4r_force[:,i]) * self.opti_contact_right[i] <= self.b)
+      self.opt.subject_to(self.A @ (self.opti_v1r_force[:,i]) * self.opti_contact_right[i] <= self.b)
+      self.opt.subject_to(self.A @ (self.opti_v2r_force[:,i]) * self.opti_contact_right[i] <= self.b)
+      self.opt.subject_to(self.A @ (self.opti_v3r_force[:,i]) * self.opti_contact_right[i] <= self.b)
+      self.opt.subject_to(self.A @ (self.opti_v4r_force[:,i]) * self.opti_contact_right[i] <= self.b)
     
-      self.opt.subject_to( (self.mass*self.u_n_partial_legl_mat[2,i]*0+self.Vl_mat[2,i]) * self.opti_contact_left[i] >= 0)
-      self.opt.subject_to( (self.mass*self.u_n_partial_legr_mat[2,i]*0+self.Vr_mat[2,i]) * self.opti_contact_right[i] >= 0)
+      self.opt.subject_to( self.opti_v1l_force[2,i] * self.opti_contact_left[i] >= 0)
+      self.opt.subject_to( self.opti_v2l_force[2,i] * self.opti_contact_left[i] >= 0)
+      self.opt.subject_to( self.opti_v3l_force[2,i] * self.opti_contact_left[i] >= 0)
+      self.opt.subject_to( self.opti_v4l_force[2,i] * self.opti_contact_left[i] >= 0)
+
+      self.opt.subject_to( self.opti_v1r_force[2,i] * self.opti_contact_left[i] >= 0)
+      self.opt.subject_to( self.opti_v2r_force[2,i] * self.opti_contact_left[i] >= 0)
+      self.opt.subject_to( self.opti_v3r_force[2,i] * self.opti_contact_left[i] >= 0)
+      self.opt.subject_to( self.opti_v4r_force[2,i] * self.opti_contact_left[i] >= 0)
       
 
       #self.opt.subject_to(self.opti_v1l_force[:,i]*self.opti_contact_left[i] >=0 )
@@ -412,10 +419,10 @@ class centroidal_mpc:
     z1=com_pos-CoM_ref_pos
     z2=k1*z1+(com_vel-CoM_ref_vel)
 
-    u_n=k1*k1*z1-(k1+k2)*z2-gravity+CoM_ref_acc
-    sum=contact_left+contact_right
-    u_n_l=u_n/sum*contact_left
-    u_n_r=u_n/sum*contact_right
+    # u_n=k1*k1*z1-(k1+k2)*z2-gravity+CoM_ref_acc
+    # sum=contact_left+contact_right
+    # u_n_l=u_n/sum*contact_left
+    # u_n_r=u_n/sum*contact_right
 
     def compute_foot_vertices(pos, rotvec):
       yaw = rotvec[2]
@@ -450,8 +457,8 @@ class centroidal_mpc:
     
     # torque_of_lfoot=contact_left*(cs.cross(pos_lc-com_pos,mass*u_n_l+Vl))
     # torque_of_rfoot=contact_right*(cs.cross(pos_rc-com_pos,mass*u_n_r+Vr))
-    torque_l=contact_left*(cs.cross(v1l_pos-pos_lc,v1l)+cs.cross(v2l_pos-pos_lc,v2l)+cs.cross(v3l_pos-pos_lc,v3l)+cs.cross(v4l_pos-pos_lc,v4l))
-    torque_r=contact_right*(cs.cross(v1r_pos-pos_rc,v1r)+cs.cross(v2r_pos-pos_rc,v2r)+cs.cross(v3r_pos-pos_rc,v3r)+cs.cross(v4r_pos-pos_rc,v4r))
+    torque_l=contact_left*(cs.cross(v1l_pos-com_pos,v1l)+cs.cross(v2l_pos-com_pos,v2l)+cs.cross(v3l_pos-com_pos,v3l)+cs.cross(v4l_pos-com_pos,v4l))
+    torque_r=contact_right*(cs.cross(v1r_pos-com_pos,v1r)+cs.cross(v2r_pos-com_pos,v2r)+cs.cross(v3r_pos-com_pos,v3r)+cs.cross(v4r_pos-com_pos,v4r))
                       #vectors from the center of the foot to the vertices
     #torque_l = contact_left * (cs.cross(pos_lc - v1l_pos, v1l) + cs.cross(pos_lc - v2l_pos, v2l) + 
                           # cs.cross(pos_lc - v3l_pos, v3l) + cs.cross(pos_lc - v4l_pos, v4l))
@@ -463,8 +470,8 @@ class centroidal_mpc:
 
     # Centroidal dynamic with disturbance estimator theta hat, contact dynamics
     dcom=com_vel 
-    ddcom= gravity+(1/mass)*(u_n+contact_left*(Vl)+contact_right*(Vr))
-    dhw= contact_left*(torque_l)+contact_right*(torque_r)
+    ddcom= gravity+(1/mass)*(Vl+Vr)
+    dhw= (torque_l)+(torque_r)
     v_left= (1-contact_left)*vel_left
     v_right= (1-contact_right)*vel_right
     omega_l=(1-contact_left)*omega_left

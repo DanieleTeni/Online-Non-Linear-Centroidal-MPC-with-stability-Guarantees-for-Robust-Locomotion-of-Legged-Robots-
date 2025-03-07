@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-class Logger():
+class Logger3():
     def __init__(self, initial):
         self.log = {}
         for item in initial.keys():
@@ -19,25 +19,22 @@ class Logger():
     def initialize_plot(self, frequency=1):
         self.frequency = frequency
         self.plot_info = [
-            {'axis': 0, 'batch': 'desired', 'item': 'com', 'level': 'pos', 'dim': 0, 'color': 'blue' , 'style': '-', 'label': 'desired x component' },
-            {'axis': 0, 'batch': 'current', 'item': 'com', 'level': 'pos', 'dim': 0, 'color': 'red' , 'style': '--'},
-            {'axis': 1, 'batch': 'desired', 'item': 'com', 'level': 'pos', 'dim': 1, 'color': 'blue' , 'style': '-' },
-            {'axis': 1, 'batch': 'current', 'item': 'com', 'level': 'pos', 'dim': 1, 'color': 'red' , 'style': '--'},
-            {'axis': 2, 'batch': 'desired', 'item': 'com', 'level': 'pos', 'dim': 2, 'color': 'blue' , 'style': '-' },
-            {'axis': 2, 'batch': 'current', 'item': 'com', 'level': 'pos', 'dim': 2, 'color': 'red' , 'style': '--'},
+            {'axis': 0, 'batch': 'desired', 'item': 'hw', 'level': 'val', 'dim': 0, 'color': 'green', 'style': '-' },
+            {'axis': 0, 'batch': 'current', 'item': 'hw', 'level': 'val', 'dim': 0, 'color': 'red', 'style': '--'},
+            {'axis': 1, 'batch': 'desired', 'item': 'hw', 'level': 'val', 'dim': 1, 'color': 'green', 'style': '-' },
+            {'axis': 1, 'batch': 'current', 'item': 'hw', 'level': 'val', 'dim': 1, 'color': 'red', 'style': '--'},
+            {'axis': 2, 'batch': 'desired', 'item': 'hw', 'level': 'val', 'dim': 2, 'color': 'green', 'style': '-' },
+            {'axis': 2, 'batch': 'current', 'item': 'hw', 'level': 'val', 'dim': 2, 'color': 'red', 'style': '--'},
         ]
 
         plot_num = np.max([item['axis'] for item in self.plot_info]) + 1
         self.fig, self.ax = plt.subplots(plot_num, 1, figsize=(6, 8))
-
-        self.fig.suptitle("Center of mass (desired vs current)", fontsize=14)
+        self.fig.suptitle("angular momentum (desired vs current)", fontsize=14)
 
         self.lines = {}
         for item in self.plot_info:
             key = item['batch'], item['item'], item['level'], item['dim']
             self.lines[key], = self.ax[item['axis']].plot([], [], color=item['color'], linestyle=item['style'])
-        for ax in self.ax:
-         ax.legend()
         
         plt.ion()
         plt.show()
