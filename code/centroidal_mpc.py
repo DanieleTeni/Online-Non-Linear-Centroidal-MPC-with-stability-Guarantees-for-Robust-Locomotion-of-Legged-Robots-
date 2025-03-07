@@ -1,6 +1,8 @@
 import numpy as np
 import casadi as cs
+import os
 print(cs.Importer_load_plugin)
+
 class centroidal_mpc:
   def __init__(self, initial, footstep_planner, params, CoM_ref, contact_trj_l, contact_trj_r):
     # parameters
@@ -21,7 +23,7 @@ class centroidal_mpc:
     self.k2=0.5
     mu= 0.5
     d= params['foot_size']/2
-
+    self.debug_folder= "Debug"
     self.A=cs.DM([[ 1, 0, 0, 0, 0, -d],
                       [-1, 0, 0, 0, 0, -d],
                       [0,  1, 0, 0, 0, -d],
@@ -54,11 +56,13 @@ class centroidal_mpc:
     #An: Get all the foot step ref from foot step planner over time stamp
     self.pos_contact_ref_l= footstep_planner.contacts_ref['contact_left']
     self.pos_contact_ref_r= footstep_planner.contacts_ref['contact_right']
-        
-    with open("pos_contact_ref_l", "w") as file:
+
+    file_path=os.path.join(self.debug_folder, "pos_contact_ref_l")    
+    with open(file_path, "w") as file:
       file.writelines(" \n".join(map(str, self.pos_contact_ref_l)))
 
-    with open("pos_contact_ref_right", "w") as file:
+    file_path=os.path.join(self.debug_folder, "pos_contact_ref_r")    
+    with open(file_path, "w") as file:
       file.writelines(" \n".join(map(str, self.pos_contact_ref_r)))
     # optimization problem setup
     self.opt = cs.Opti()
@@ -298,9 +302,12 @@ class centroidal_mpc:
     print(contact_status_r[0])
     # print("planned contact status right")
     # print(contact_status_r[0])
-    with open("update contact status left in entire horizon", "w") as file:
+    file_path=os.path.join(self.debug_folder, "update contact status left in entire horizon")    
+    with open(file_path, "w") as file:
       file.writelines("\n".join(map(str, contact_status_l)))
-    with open("update contact status right in entire horizon", "w") as file:
+
+    file_path=os.path.join(self.debug_folder, "update contact status right in entire horizon")  
+    with open(file_path, "w") as file:
       file.writelines("\n".join(map(str, contact_status_r)))
     #print("contact_status_left:")
     #print(contact_status_l)
@@ -362,7 +369,8 @@ class centroidal_mpc:
     #for i in range(self.N):
     print(self.x_collect[0:3,1])
 
-    with open("mpc contact result in entire horizon", "w") as file:
+    file_path=os.path.join(self.debug_folder, "mpc contact result in entire horizon")  
+    with open(file_path, "w") as file:
       #file.writelines("mpc contact result in entire horizon")
       #for i in range(self.N):
         file.writelines(" \n".join(map(str, self.x_collect[12:15,:])))

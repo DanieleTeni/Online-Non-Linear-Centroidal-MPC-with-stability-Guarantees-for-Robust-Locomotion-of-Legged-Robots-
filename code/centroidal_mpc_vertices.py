@@ -1,16 +1,7 @@
 import numpy as np
 import casadi as cs
+import os
 from scipy.spatial.transform import Rotation as R
-
-#        self.centroidal_mpc=centroidal_mpc.centroidal_mpc(
-#            self.initial, 
-#            self.footstep_planner, 
-#            self.params,
-#            self.ref,
-#            self.pre_left_traj,
-#            self.pre_right_traj
-#             #to access at the position of the feets we need      self.pre_left_traj[2499][0]['pos'][3:6]} last position
-#        )
 
 class centroidal_mpc:
   def __init__(self, initial, footstep_planner, params, CoM_ref, contact_trj_l, contact_trj_r):
@@ -28,7 +19,7 @@ class centroidal_mpc:
     self.initial = initial
     self.footstep_planner = footstep_planner
     self.sigma = lambda t, t0, t1: np.clip((t - t0) / (t1 - t0), 0, 1) # piecewise linear sigmoidal function
-
+    self.debug_folder= "Debug"
     #Change of coordinates Gains
     self.k1=1
     self.k2=0.5
@@ -79,7 +70,6 @@ class centroidal_mpc:
     self.acc_com_ref_z= CoM_ref['acc_z']
     
     #An: Get all the foot step ref from foot step planner over time stamp
-    #they cahnges every 100u
     self.pose_contact_ref_l= footstep_planner.position_contacts_ref['contact_left']
     self.pose_contact_ref_r= footstep_planner.position_contacts_ref['contact_right']
 
@@ -89,7 +79,8 @@ class centroidal_mpc:
     self.rotvec_contact_ref_l = self.pose_contact_ref_l[:, 0:3]  # Rotation vector [rx, ry, rz]
     self.rotvec_contact_ref_r = self.pose_contact_ref_r[:, 0:3]  # Rotation vector [rx, ry, rz]
 
-    with open("MPC_pose_contact_ref.txt", "w") as file:
+    file_path=os.path.join(self.debug_folder, "MPC_pose_contact_ref")        
+    with open(file_path, "w") as file:
         for i in range(len(self.pose_contact_ref_l)):  # Loop through all time steps
             # Extract rotation vector and position for the left foot
             rotvec_l = self.rotvec_contact_ref_l[i]
@@ -110,7 +101,8 @@ class centroidal_mpc:
     self.contact_trj_l=contact_trj_l
     self.contact_trj_r=contact_trj_r
     #to access at the position of the feets we need      self.pre_left_traj[2499][0]['pos'][3:6]} last position
-    with open("contact_trj_from_centroidal_MPC.txt", "w") as file:
+    file_path=os.path.join(self.debug_folder, "contact_trj_from_centroidal_MPC")        
+    with open(file_path, "w") as file:
       for i in range(len(self.contact_trj_l)):  # Assumo che abbiano la stessa lunghezza
         left_pos = " ".join(map(str, self.contact_trj_l[i][0]['pos'][0:6]))
         left_vel = " ".join(map(str, self.contact_trj_l[i][0]['vel'][0:6]))
@@ -532,11 +524,13 @@ class centroidal_mpc:
       contact_status_r=np.vstack((contact_status_r,contact_status_r_i))
 
     self.opt.set_value(self.opti_contact_left, contact_status_l)
-    self.opt.set_value(self.opti_contact_right, contact_status_r)      
-
-    with open("update contact status left in entire horizon", "w") as file:
+    self.opt.set_value(self.opti_contact_right, contact_status_r)
+      
+    file_path=os.path.join(self.debug_folder, "update contact status left in entire horizon")
+    with open(file_path, "w") as file:
       file.writelines("\n".join(map(str, contact_status_l)))
-    with open("update contact status right in entire horizon", "w") as file:
+    file_path=os.path.join(self.debug_folder, "update contact status right in entire horizon")  
+    with open(file_path, "w") as file:
       file.writelines("\n".join(map(str, contact_status_r)))
 
 
@@ -687,9 +681,12 @@ class centroidal_mpc:
       print(f"valore delle forza NON ok ❌🔽")
     print(f'\n\n\n\n\n')
     
-    with open("mpc contact lfoot result in entire horizon", "w") as file:
+    file_path=os.path.join(self.debug_folder, "mpc contact lfoot result in entire horizon") 
+    with open(file_path, "w") as file:
         file.writelines(" \n".join(map(str, self.x_collect[9:12,:])))
-    with open("mpc contact rfoot result in entire horizon", "w") as file:
+
+    file_path=os.path.join(self.debug_folder, "mpc contact rfoot result in entire horizon")     
+    with open(file_path, "w") as file:
         file.writelines(" \n".join(map(str, self.x_collect[12:15,:])))
 
     self.opt.set_initial(self.U, sol.value(self.U))

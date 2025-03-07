@@ -12,7 +12,7 @@ import foot_trajectory_generator as ftg
 from logger import Logger
 import new
 
-
+debug_folder= "Debug"
 class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
     def __init__(self, world, hrp4):
         super(Hrp4Controller, self).__init__(world)
@@ -86,7 +86,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.id = id.InverseDynamics(self.hrp4, redundant_dofs)
 
              # initialize footstep planner
-        reference = [(0.1, 0., 0)] * 5 + [(0.1, 0., -0.0)] * 10 + [(0.1, 0., 0.)] * 10
+        reference = [(0.1, 0., 0.01)] * 5 + [(0.1, 0., -0.0)] * 10 + [(0.1, 0., 0.)] * 10
         self.footstep_planner = footstep_planner.FootstepPlanner(
             reference,
             self.initial['lfoot']['pos'],
@@ -106,12 +106,13 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.pre_left_traj=pre_feet_traj['lfoot']
         self.pre_right_traj=pre_feet_traj['rfoot']
 
-        with open("Pos Lfoot pre trj", "w") as file:
+        file_path=os.path.join(debug_folder, "Pos Lfoot pre trj")
+        with open(file_path, "w") as file:
             for i in range(len(self.pre_left_traj)):
                 file.writelines(" ".join(map(str, self.pre_left_traj[i][0]['pos'][3:6]))+ "\n")
             
-        
-        with open("Pos Rfoot pre trj", "w") as file:
+        file_path=os.path.join(debug_folder, "Pos Rfoot pre trj")
+        with open(file_path, "w") as file:
             for i in range(len(self.pre_left_traj)):
                 file.writelines(" ".join(map(str, self.pre_right_traj[i][0]['pos'][3:6]))+ "\n")
 
