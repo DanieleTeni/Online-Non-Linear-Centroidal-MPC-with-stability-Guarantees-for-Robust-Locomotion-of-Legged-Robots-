@@ -18,7 +18,7 @@ def compute_knot(foot_tra,planner):
         
         knot_x.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][3])/2)
         contact=planner.plan[1]['foot_id']
-        knot_y.append(foot_tra.generate_feet_trajectories_at_time(0)[contact]['pos'][4]*0.6)
+        knot_y.append(foot_tra.generate_feet_trajectories_at_time(0)[contact]['pos'][4]*0.5)
         #knot_y.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][4])/2)
         sequence_x.append(200)
         sequence_y.append(200)
@@ -27,14 +27,17 @@ def compute_knot(foot_tra,planner):
           knot_x.append((foot_tra.generate_feet_trajectories_at_time(i)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(i)['rfoot']['pos'][3])/2)
           sequence_x.append(i)
 
+          # idx_x=planner.get_step_index_at_time(i)
+          # contact=planner.plan[idx_x+1]['foot_id']
+          # sequence_x.append(i+30)
           idx_y=planner.get_step_index_at_time(i)
           print(i)
           print("step id")
           print(idx_y)
           contact=planner.plan[idx_y+1]['foot_id']
-          # knot_y.append(foot_tra.generate_feet_trajectories_at_time(i)[contact]['pos'][4]*0.6)
+          # knot_y.append(foot_tra.generate_feet_trajectories_at_time(i)[contact]['pos'][4]*0.5)
           # sequence_y.append(i)
-          knot_y.append(foot_tra.generate_feet_trajectories_at_time(i)[contact]['pos'][4]*0.6)
+          knot_y.append(foot_tra.generate_feet_trajectories_at_time(i)[contact]['pos'][4]*0.5)
           #knot_y.append((foot_tra.generate_feet_trajectories_at_time(i)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(i)['rfoot']['pos'][4])/2)
           #sequence_y.append(i)
           sequence_y.append(i+30)
@@ -44,6 +47,7 @@ def compute_knot(foot_tra,planner):
         knot_y.append((foot_tra.generate_feet_trajectories_at_time(t)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(t)['rfoot']['pos'][4])/2)
         sequence_x.append(t)
         sequence_y.append(t)
+        plot_spline(knot_x)
         plot_spline(knot_y)
         return knot_x,knot_y,sequence_x,sequence_y
 
