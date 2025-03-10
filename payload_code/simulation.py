@@ -98,8 +98,8 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         initial_configuration = {'CHEST_P': 0., 'CHEST_Y': 0., 'NECK_P': 0., 'NECK_Y': 0., \
                                  'R_HIP_Y': 0., 'R_HIP_R': -3., 'R_HIP_P': -25., 'R_KNEE_P': 50., 'R_ANKLE_P': -25., 'R_ANKLE_R':  3., \
                                  'L_HIP_Y': 0., 'L_HIP_R':  3., 'L_HIP_P': -25., 'L_KNEE_P': 50., 'L_ANKLE_P': -25., 'L_ANKLE_R': -3., \
-                                 'R_SHOULDER_P': 4., 'R_SHOULDER_R': -8., 'R_SHOULDER_Y': 0., 'R_ELBOW_P': -25., \
-                                 'L_SHOULDER_P': 4., 'L_SHOULDER_R':  8., 'L_SHOULDER_Y': 0., 'L_ELBOW_P': -25.}
+                                 'R_SHOULDER_P': 4., 'R_SHOULDER_R': -8., 'R_SHOULDER_Y': 0., \
+                                 'L_SHOULDER_P': 4., 'L_SHOULDER_R':  8.}
 
         for joint_name, value in initial_configuration.items():
             self.hrp4.setPosition(self.hrp4.getDof(joint_name).getIndexInSkeleton(), value * np.pi / 180.)
@@ -542,8 +542,12 @@ if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
     hrp4   = urdfParser.parseSkeleton(os.path.join(current_dir, "urdf", "hrp4.urdf"))
     ground = urdfParser.parseSkeleton(os.path.join(current_dir, "urdf", "ground.urdf"))
+    #stair = urdfParser.parseSkeleton(os.path.join(current_dir, "urdf", "stairs.urdf"))
+    box = urdfParser.parseSkeleton(os.path.join(current_dir, "urdf", "box.urdf"))
     world.addSkeleton(hrp4)
     world.addSkeleton(ground)
+    world.addSkeleton(box)
+    #world.addSkeleton(stair)
     world.setGravity([0, 0, -9.81])
     world.setTimeStep(0.01)
 

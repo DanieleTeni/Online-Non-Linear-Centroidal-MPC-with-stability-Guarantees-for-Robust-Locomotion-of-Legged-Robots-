@@ -21,6 +21,12 @@
         <mesh filename="../meshes/WAIST_LINK.dae"/>
       </geometry>
     </visual>
+    <collision>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+            <box size="0.1 0.1 0.1"/>  <!-- Le dimensioni della scatola, adatta a seconda della forma -->
+        </geometry>
+    </collision>
       </link>
   <link name="R_HIP_Y_LINK">
     <inertial>
@@ -34,6 +40,12 @@
         <mesh filename="../meshes/HIP_Y.dae"/>
       </geometry>
     </visual>
+    <collision>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+            <box size="0.1 0.1 0.1"/>  <!-- Le dimensioni della scatola, adatta a seconda della forma -->
+        </geometry>
+    </collision>
       </link>
   <link name="R_HIP_R_LINK">
     <inertial>
@@ -47,6 +59,12 @@
         <mesh filename="../meshes/CHEST_P.dae"/>
       </geometry>
     </visual>
+    <collision>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+            <box size="0.1 0.1 0.1"/>  <!-- Le dimensioni della scatola, adatta a seconda della forma -->
+        </geometry>
+    </collision>
       </link>
   <link name="R_HIP_P_LINK">
     <inertial>
@@ -60,6 +78,12 @@
         <mesh filename="../meshes/R_HIP_P.dae"/>
       </geometry>
     </visual>
+    <collision>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+            <box size="0.1 0.1 0.1"/>  <!-- Le dimensioni della scatola, adatta a seconda della forma -->
+        </geometry>
+    </collision>
       </link>
   <link name="R_KNEE_P_LINK">
     <inertial>
@@ -251,6 +275,12 @@
         <mesh filename="../meshes/CHEST_Y.dae"/>
       </geometry>
     </visual>
+     <collision>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+            <box size="0.1 0.1 0.1"/>  <!-- Le dimensioni della scatola, adatta a seconda della forma -->
+        </geometry>
+    </collision>
       </link>
   <link name="NECK_Y_LINK">
     <inertial>
@@ -329,6 +359,12 @@
         <mesh filename="../meshes/ELBOW_P.dae"/>
       </geometry>
     </visual>
+     <collision>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+            <box size="0.1 0.1 0.1"/>  <!-- Le dimensioni della scatola, adatta a seconda della forma -->
+        </geometry>
+    </collision>
       </link>
   <link name="R_WRIST_Y_LINK">
     <inertial>
@@ -342,6 +378,8 @@
         <mesh filename="../meshes/R_WRIST_Y.dae"/>
       </geometry>
     </visual>
+    
+    
       </link>
   <link name="R_WRIST_P_LINK">
     <inertial>
@@ -355,6 +393,12 @@
         <mesh filename="../meshes/WRIST_P.dae"/>
       </geometry>
     </visual>
+    <collision>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+            <box size="0.1 0.1 0.1"/>  <!-- Le dimensioni della scatola, adatta a seconda della forma -->
+        </geometry>
+    </collision>
       </link>
   <link name="r_wrist">
     <inertial>
@@ -381,6 +425,12 @@
         <mesh filename="../meshes/R_THUMB.dae"/>
       </geometry>
     </visual>
+     <collision>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+            <box size="0.1 0.1 0.1"/>  <!-- Le dimensioni della scatola, adatta a seconda della forma -->
+        </geometry>
+    </collision>
       </link>
   <link name="R_HAND_J1_LINK">
     <inertial>
@@ -394,6 +444,12 @@
         <mesh filename="../meshes/R_F1.dae"/>
       </geometry>
     </visual>
+     <collision>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+            <box size="0.1 0.1 0.1"/>  <!-- Le dimensioni della scatola, adatta a seconda della forma -->
+        </geometry>
+    </collision>
       </link>
   <link name="R_F22_LINK">
     <inertial>
@@ -420,6 +476,12 @@
         <mesh filename="../meshes/F3.dae"/>
       </geometry>
     </visual>
+     <collision>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+            <box size="0.1 0.1 0.1"/>  <!-- Le dimensioni della scatola, adatta a seconda della forma -->
+        </geometry>
+    </collision>
       </link>
   <link name="R_F32_LINK">
     <inertial>
@@ -550,6 +612,12 @@
         <mesh filename="../meshes/ELBOW_P.dae"/>
       </geometry>
     </visual>
+    <collision>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+            <box size="0.1 0.1 0.1"/>  <!-- Le dimensioni della scatola, adatta a seconda della forma -->
+        </geometry>
+    </collision>
       </link>
   <link name="L_WRIST_Y_LINK">
     <inertial>
@@ -562,6 +630,12 @@
       <geometry>
         <mesh filename="../meshes/L_WRIST_Y.dae"/>
       </geometry>
+      <collision>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+            <box size="0.1 0.1 0.1"/>  <!-- Le dimensioni della scatola, adatta a seconda della forma -->
+        </geometry>
+    </collision>
     </visual>
       </link>
   <link name="L_WRIST_P_LINK">
@@ -576,6 +650,12 @@
         <mesh filename="../meshes/WRIST_P.dae"/>
       </geometry>
     </visual>
+    <collision>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+            <box size="0.1 0.1 0.1"/>  <!-- Le dimensioni della scatola, adatta a seconda della forma -->
+        </geometry>
+    </collision>
       </link>
   <link name="l_wrist">
     <inertial>
@@ -602,6 +682,12 @@
         <mesh filename="../meshes/L_THUMB.dae"/>
       </geometry>
     </visual>
+     <collision>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+            <box size="0.1 0.1 0.1"/>  <!-- Le dimensioni della scatola, adatta a seconda della forma -->
+        </geometry>
+    </collision>
       </link>
   <link name="L_HAND_J1_LINK">
     <inertial>
@@ -615,6 +701,12 @@
         <mesh filename="../meshes/L_F1.dae"/>
       </geometry>
     </visual>
+     <collision>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+            <box size="0.1 0.1 0.1"/>  <!-- Le dimensioni della scatola, adatta a seconda della forma -->
+        </geometry>
+    </collision>
       </link>
   <link name="L_F22_LINK">
     <inertial>
@@ -641,6 +733,12 @@
         <mesh filename="../meshes/F3.dae"/>
       </geometry>
     </visual>
+     <collision>
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <geometry>
+            <box size="0.1 0.1 0.1"/>  <!-- Le dimensioni della scatola, adatta a seconda della forma -->
+        </geometry>
+    </collision>
       </link>
   <link name="L_F32_LINK">
     <inertial>
@@ -854,15 +952,15 @@
     <child link="R_SHOULDER_Y_LINK"/>
     <limit effort="63.82" lower="-1.60570288444444" upper="1.60570288444444" velocity="2.94262511886"/>
   </joint>
-  <joint name="R_ELBOW_P" type="revolute">
-    <origin rpy="0 0 0" xyz="0 0 -0.283"/>
+  <joint name="R_ELBOW_P" type="fixed">
+    <origin rpy="0 -1.7 0" xyz="0 0 -0.283"/>
     <axis xyz="0 1 0"/>
     <parent link="R_SHOULDER_Y_LINK"/>
     <child link="R_ELBOW_P_LINK"/>
-    <limit effort="46.99" lower="-2.14675494333333" upper="0.0349065844444444" velocity="2.64940980453"/>
+    <limit effort="46.99" lower="-2.14675494333333" upper="0.2" velocity="2.64940980453"/>
   </joint>
   <joint name="R_WRIST_Y" type="fixed">
-    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <origin rpy="0 0 -1.5" xyz="0 0 0"/>
     <axis xyz="0 0 1"/>
     <parent link="R_ELBOW_P_LINK"/>
     <child link="R_WRIST_Y_LINK"/>
@@ -883,14 +981,14 @@
     <limit effort="12.4" lower="-1.60570288444444" upper="1.60570288444444" velocity="4.1154863762"/>
   </joint>
   <joint name="R_HAND_J0" type="fixed">
-    <origin rpy="0 0.4118977034707 0" xyz="0.03419 0 -0.039"/>
+    <origin rpy="1.5707 0.4118977034707 0" xyz="0.03419 0 -0.039"/>
     <axis xyz="0 0 1"/>
     <parent link="r_wrist"/>
     <child link="R_HAND_J0_LINK"/>
     <limit effort="1.06" lower="0" upper="1.5707963" velocity="16.9541283539"/>
   </joint>
   <joint name="R_HAND_J1" type="fixed">
-    <origin rpy="0 0 0" xyz="0 0 -0.111"/>
+    <origin rpy="1.57 0 0" xyz="0 0 -0.111"/>
     <axis xyz="1 0 0"/>
     <parent link="r_wrist"/>
     <child link="R_HAND_J1_LINK"/>
@@ -910,22 +1008,22 @@
     <child link="L_SHOULDER_R_LINK"/>
     <limit effort="60.6" lower="-0.174532922222222" upper="1.55334300777778" velocity="2.05250720035"/>
   </joint>
-  <joint name="L_SHOULDER_Y" type="revolute">
+  <joint name="L_SHOULDER_Y" type="fixed">
     <origin rpy="0 0 0" xyz="0 0 0"/>
     <axis xyz="0 0 1"/>
     <parent link="L_SHOULDER_R_LINK"/>
     <child link="L_SHOULDER_Y_LINK"/>
     <limit effort="63.82" lower="-1.60570288444444" upper="1.60570288444444" velocity="2.94262511886"/>
   </joint>
-  <joint name="L_ELBOW_P" type="revolute">
-    <origin rpy="0 0 0" xyz="0 0 -0.283"/>
+  <joint name="L_ELBOW_P" type="fixed">
+    <origin rpy="0 -1.7 0" xyz="0 0 -0.283"/>
     <axis xyz="0 1 0"/>
     <parent link="L_SHOULDER_Y_LINK"/>
     <child link="L_ELBOW_P_LINK"/>
     <limit effort="46.99" lower="-2.14675494333333" upper="0.0349065844444444" velocity="2.64940980453"/>
   </joint>
   <joint name="L_WRIST_Y" type="fixed">
-    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <origin rpy="0 0 1.5" xyz="0 0 0"/>
     <axis xyz="0 0 1"/>
     <parent link="L_ELBOW_P_LINK"/>
     <child link="L_WRIST_Y_LINK"/>
@@ -953,7 +1051,7 @@
     <limit effort="1.06" lower="-1.5707963" upper="0" velocity="16.9541283539"/>
   </joint>
   <joint name="L_HAND_J1" type="fixed">
-    <origin rpy="0 0 0" xyz="0 0 -0.111"/>
+    <origin rpy="-1.57 0 0" xyz="0 0 -0.111"/>
     <axis xyz="1 0 0"/>
     <parent link="l_wrist"/>
     <child link="L_HAND_J1_LINK"/>
