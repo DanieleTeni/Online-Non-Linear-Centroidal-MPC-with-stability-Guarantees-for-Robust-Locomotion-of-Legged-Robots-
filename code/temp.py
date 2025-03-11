@@ -59,7 +59,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         acc='NO'    #if acc = 0 then self.desired[torso or base] = np.zeros(3)
                     #if acc = YES   then i update the angular velocity derivative by inverting  the formula 
                     ##      dwh = I@dw + np.cros(w,I@w)      and so compute the desired dw
-        track='torso'        # or base
+        track='base'        # or base
 
         self.preferences=[model,momentum ,real_walk,Angular_update,acc,track]   # AN code , stop at 1384
         
@@ -111,6 +111,37 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.hrp4.setPosition(4, - (lsole_pos[1] + rsole_pos[1]) / 2.)
         self.hrp4.setPosition(5, - (lsole_pos[2] + rsole_pos[2]) / 2.)
 
+        #An: Compute total inertia
+        tot_inertia = np.zeros((6*hrp4.getNumBodyNodes(), 6*hrp4.getNumBodyNodes())) 
+        num_link=0
+        for link in self.hrp4.getBodyNodes():
+            
+            mass_i = link.getMass()
+            if mass_i == 0:
+                continue
+                
+            c_i = link.getLocalCOM()#Position of the CoM of link_i to the link i's ref frame
+            #print(f'link CoM pos:\n{c_i}')
+            inertia_i_localCoM = self.base.getInertia().getMoment()  #inertia matrix wrt local frame
+            skew_ci = np.array([
+                [0, -c_i[2], c_i[1]],
+                [c_i[2], 0, -c_i[0]],
+                [-c_i[1], c_i[0], 0]
+            ])
+
+            inertia_i = np.zeros((6, 6))
+            inertia_i[:3, :3] = inertia_i_localCoM + mass_i * skew_ci @ skew_ci.T
+            inertia_i[:3, 3:] = mass_i * skew_ci
+            inertia_i[3:, :3] = mass_i * skew_ci.T
+            inertia_i[3:, 3:] = mass_i * np.identity(3)
+
+            #print(f'size inertia_i:\n{inertia_i}')
+            tot_inertia[6*num_link:6*(num_link+1), 6*num_link:6*(num_link+1)] = inertia_i
+            #print(f'ccrbi:\n{ccrbi}')
+
+            #print(f'inertia_i_local_moment:\n{inertia_i_local}')
+            num_link=num_link+1
+        self.tot_inertia=tot_inertia
    
 
    
@@ -131,7 +162,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.id = id.InverseDynamics(self.hrp4, redundant_dofs)
 
              # initialize footstep planner
-        reference = [(0.1, 0., 0)] * 5 + [(0.1, 0., -0.0)] * 10 + [(0.1, 0., 0.)] * 10
+        reference = [(0.1, 0., 0)] * 5 + [(0.1, 0., -0.0)] * 10 + [(0.1, 0., 0.)] * 15
         if self.preferences[0]=='full_model' :
          self.footstep_planner = footstep_planner_vertices.FootstepPlanner(
             reference,
@@ -178,12 +209,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
              # initialize MPC controller
         if self.preferences[0]== 'full_model' :
          self.contact_ref= self.footstep_planner.position_contacts_ref
-        # print("contact Ref")
-        # print(self.contact_ref['contact_left'][199])
-        # print(self.contact_ref['contact_left'][201])
-        # print(self.contact_ref['contact_right'][199])
-        # print(self.contact_ref['contact_right'][300])
-        #print(self.contact_ref['contact_right'][199].shape[1])       
+  
         print("foot_step_plan")
         for i in range(len(self.footstep_planner.plan)):
             print(self.footstep_planner.plan[i])
@@ -221,28 +247,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             self.pre_left_traj,
             self.pre_right_traj
           )
-
-        # initialize kalman filter
-        A = np.identity(3) + self.params['world_time_step'] * self.mpc.A_lip
-        B = self.params['world_time_step'] * self.mpc.B_lip
-        d = np.zeros(9)
-        d[7] = - self.params['world_time_step'] * self.params['g']
-        H = np.identity(3)
-        Q = block_diag(1., 1., 1.)
-        R = block_diag(1e1, 1e2, 1e4)
-        P = np.identity(3)
-        x = np.array([self.initial['com']['pos'][0], self.initial['com']['vel'][0], self.initial['zmp']['pos'][0], \
-                      self.initial['com']['pos'][1], self.initial['com']['vel'][1], self.initial['zmp']['pos'][1], \
-                      self.initial['com']['pos'][2], self.initial['com']['vel'][2], self.initial['zmp']['pos'][2]])
-        self.kf = filter.KalmanFilter(block_diag(A, A, A), \
-                                      block_diag(B, B, B), \
-                                      d, \
-                                      block_diag(H, H, H), \
-                                      block_diag(Q, Q, Q), \
-                                      block_diag(R, R, R), \
-                                      block_diag(P, P, P), \
-                                      x)
-
+        
         # initialize logger and plots
         self.logger = Logger(self.initial)
         self.logger.initialize_plot(frequency=10)
@@ -255,50 +260,12 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
     def customPreStep(self):
         # create current and desired states
         if  self.time < 800:
-            force = np.array([.0, 0.0, -30.0])  # Newtons
+            force = np.array([.0, 0.0, -20.0])  # Newtons
             self.base.addExtForce(force)
         self.current = self.retrieve_state() 
-        #print(self.current)
-        #update kalman filter
-        # u = np.array([self.desired['zmp']['vel'][0], self.desired['zmp']['vel'][1], self.desired['zmp']['vel'][2]])
-        # self.kf.predict(u)
-        # x_flt, _ = self.kf.update(np.array([self.current['com']['pos'][0], self.current['com']['vel'][0], self.current['zmp']['pos'][0], \
-        #                                     self.current['com']['pos'][1], self.current['com']['vel'][1], self.current['zmp']['pos'][1], \
-        #                                     self.current['com']['pos'][2], self.current['com']['vel'][2], self.current['zmp']['pos'][2]]))
-        self.current = self.retrieve_state() 
-        #print(self.current)
-        #update kalman filter
-        # u = np.array([self.desired['zmp']['vel'][0], self.desired['zmp']['vel'][1], self.desired['zmp']['vel'][2]])
-        # self.kf.predict(u)
-        # x_flt, _ = self.kf.update(np.array([self.current['com']['pos'][0], self.current['com']['vel'][0], self.current['zmp']['pos'][0], \
-        #                                     self.current['com']['pos'][1], self.current['com']['vel'][1], self.current['zmp']['pos'][1], \
-        #                                     self.current['com']['pos'][2], self.current['com']['vel'][2], self.current['zmp']['pos'][2]]))
-        
-        # # update current state using kalman filter output
-        # self.current['com']['pos'][0] = x_flt[0]
-        # self.current['com']['vel'][0] = x_flt[1]
-        # self.current['zmp']['pos'][0] = x_flt[2]
-        # self.current['com']['pos'][1] = x_flt[3]
-        # self.current['com']['vel'][1] = x_flt[4]
-        # self.current['zmp']['pos'][1] = x_flt[5]
-        # self.current['com']['pos'][2] = x_flt[6]
-        # self.current['com']['vel'][2] = x_flt[7]
-        # self.current['zmp']['pos'][2] = x_flt[8]
-        # # update current state using kalman filter output
-        # self.current['com']['pos'][0] = x_flt[0]
-        # self.current['com']['vel'][0] = x_flt[1]
-        # self.current['zmp']['pos'][0] = x_flt[2]
-        # self.current['com']['pos'][1] = x_flt[3]
-        # self.current['com']['vel'][1] = x_flt[4]
-        # self.current['zmp']['pos'][1] = x_flt[5]
-        # self.current['com']['pos'][2] = x_flt[6]
-        # self.current['com']['vel'][2] = x_flt[7]
-        # self.current['zmp']['pos'][2] = x_flt[8]
-
+  
         # get references using mpc SOLVE THE MPC
-        #lip_state, contact = self.mpc.solve(self.current, self.time)
         robot_state, contact= self.centroidal_mpc.solve(self.current, self.time)
-        #lip_state, contact = self.centroidal_mpc.solve(self.current, self.time)
         
         self.desired['com']['pos'] = robot_state['com']['pos']
         self.desired['com']['vel'] = robot_state['com']['vel']
@@ -326,7 +293,6 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         feet_trajectories = self.foot_trajectory_generator.generate_feet_trajectories_at_time(self.time)
         for foot in ['lfoot', 'rfoot']:
             for key in ['pos', 'vel', 'acc']:
-            #for key in ['vel', 'acc']:
                 self.desired[foot][key] = feet_trajectories[foot][key]
         
         # print("left foot position trj:")
@@ -344,25 +310,26 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         if self.preferences[2] == 'YES'  and self.preferences[0] != 'simple' :
                 self.desired['lfoot']['pos'][3:6] = robot_state['pos_contact_left']['val'] 
                 self.desired['rfoot']['pos'][3:6] = robot_state['pos_contact_right']['val']
-                print("Real walk enable") 
+                #print("Real walk enable") 
                 if self.preferences[0] == 'full_model' :
                    self.desired['lfoot']['pos'][0:3] = robot_state['ang_contact_left']['val'] 
                    self.desired['rfoot']['pos'][0:3] = robot_state['ang_contact_right']['val']
 
-        inertia=self.current['inertia']['value'] 
-
+        ccrbi=self.current['inertia']['value'] 
+        inv_ccrbi=np.linalg.inv(ccrbi)
+        inv_inertia_w=inv_ccrbi[:3,:3]
         if self.preferences[3] == "YES"  and self.preferences[5] != 'base ':
-            self.desired['torso']['vel']=np.linalg.inv(inertia)@robot_state['hw']['val']
+            self.desired['torso']['vel']=inv_inertia_w@robot_state['hw']['val']
         if self.preferences[3] == "YES"  and self.preferences[5] == 'base ':
-            self.desired['base']['vel']=np.linalg.inv(inertia)@robot_state['hw']['val']
+            self.desired['base']['vel']=inv_inertia_w@robot_state['hw']['val']
         if self.preferences[4] == 0  and self.preferences[5] != 'base ':
             self.desired['torso']['acc']=np.zeros(3)
         elif self.preferences[4] == 0  and self.preferences[5] == 'base ':
           self.desired['base']['acc']= np.zeros(3)
         if self.preferences[4] == 'YES'  and self.preferences[5] != 'base ':
-            self.desired['torso']['acc']=np.linalg.inv(inertia)@ (robot_state['hw']['dot']-np.cross(self.desired['torso']['vel'],inertia@ self.desired['torso']['vel']))
+            self.desired['torso']['acc']=inv_inertia_w@ (robot_state['hw']['dot']-np.cross(self.desired['torso']['vel'],self.tot_inertia[3:6,3:6]@ self.desired['torso']['vel']))
         if self.preferences[4] == 'YES'  and self.preferences[5] == 'base ':
-            self.desired['torso']['acc']=np.linalg.inv(inertia)@ (robot_state['hw']['dot']-np.cross(self.desired['base']['vel'],inertia@ self.desired['base']['vel']))
+            self.desired['torso']['acc']=inv_inertia_w@ (robot_state['hw']['dot']-np.cross(self.desired['base']['vel'],self.tot_inertia[3:6,3:6]@ self.desired['base']['vel']))
                     
     
         # get torque commands using inverse dynamics
@@ -446,7 +413,47 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         # print(self.rsole.getAngularMomentum(com_position))
         # print("L_hip_p angl m")
         # print(self.l_hip_p.getAngularMomentum(com_position))
+        
+        ## Compute centroidal composite rigid body inertia
+        if self.preferences[5] != 'base':
+         w_R_com=self.hrp4.getBodyNode('torso').getTransform().rotation()
+         print("wRCoM")
+         print(w_R_com)
+        else : w_R_com=self.hrp4.getBodyNode('body').getTransform().rotation()
 
+        Xg= np.zeros((6*hrp4.getNumBodyNodes(),6))
+        num_link=0
+        for link in self.hrp4.getBodyNodes():
+            c_i = link.getLocalCOM()#Position of the CoM of link_i to the link i's ref frame
+           
+            #print(f'inertia_i_local_moment:\n{inertia_i_local}')
+            w_R_i = link.getTransform().rotation() #{w}^R_{i} --> Rot mat. describing orient. of link_i frame wrt World frame
+
+            i_R_CoM=w_R_i.T @ w_R_com            # {CoM}^R_{i}={w}^R_{CoM}.T @ {w}^R_{i}
+            
+            com_d_i= link.getCOM()-c_i-com_position #vector sum: w_d_com+com_d_i+i_d_comi=w_d_comi=link.getCOM()
+
+            skew_com_d_i = np.array([
+                [0, -com_d_i[2], com_d_i[1]],
+                [com_d_i[2], 0, -com_d_i[0]],
+                [-com_d_i[1], com_d_i[0], 0]
+            ])
+            i_X_com = np.zeros((6, 6))
+            i_X_com[:3, :3] = i_R_CoM
+            i_X_com[:3, 3:] = np.zeros(3)
+            i_X_com[3:, :3] = i_R_CoM * skew_com_d_i.T
+            i_X_com[3:, 3:] = i_R_CoM
+
+            Xg[6*num_link:6*(num_link+1),:] = i_X_com
+            num_link=num_link+1
+
+        # file_path=os.path.join(debug_folder, "centroidal composite rigid body inertia")
+        # with open(file_path, "w") as file:
+        #     #for i in range(len(self.pre_left_traj)):
+        #         file.writelines(" ".join(map(str, tot_inertia)))   
+        
+        ccrbi= Xg.T@self.tot_inertia @Xg
+        print(f'size ccrbi:\n{ccrbi.shape}')
 
         # Get angular momentum
 
@@ -468,46 +475,15 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
                                     self.l_hip_p.getAngularMomentum(com_position)
         if self.preferences[1] == 'full' :
             angular_momentum_at_com=np.zeros(3)
+            tot_link_angular_momentum=np.zeros(3)
             for body in hrp4.getBodyNodes():
                 angular_momentum_at_com+=body.getAngularMomentum(com_position)
-        
-         
-        
+
         c_l1,c_l2,c_l3,c_l4=new.compoute_corner(l_foot_position,l_foot_orientation)
         c_r1,c_r2,c_r3,c_r4=new.compoute_corner(r_foot_position,r_foot_orientation)
-
-        if self.preferences[5] != 'base':
-         w_R_com=torso_orientation
-        else : w_R_com=base_orientation
         ###############
-        inertia_at_com = np.zeros((3, 3))  #CoM_I_CoM
-        for body in self.hrp4.getBodyNodes():
-            mass_i = body.getMass()
-            if mass_i == 0:
-                continue
-                
-            c_i = body.getCOM(withRespectTo=dart.dynamics.Frame.World())#Position of the CoM of link_i
-            # distance = vector from Com_pos to c_i
-            delta_i = c_i - com_position 
-            inertia_i_local = body.getInertia().getMoment()  #inertia matrix wrt local frame
-            w_R_i = body.getTransform().rotation() #{w}^R_{i} --> Rot mat. describing orient. of link_i frame wrt World frame
-
-            CoM_R_i=w_R_com.T @ w_R_i            # {CoM}^R_{i}={w}^R_{CoM}.T @ {w}^R_{i}
-
-            # Generalized Huygen-steiner th says:
-                # [ CoM_I_i=com_R_i * i_I_i * com_R_i^T ] + mass *[ ||dist||^2*Id-dist @ dist.T ]
-            
-                    #Note CoM_I_i=com_R_i * i_I_i * com_R_i^T=CoM_I_CoM   ok
-
-            inertia_i_wrt_CoM = CoM_R_i @ inertia_i_local @ CoM_R_i.T   # CoM_I_i=com_R_i*i_I_i*com_R_i^T
-            inertia_translated = inertia_i_wrt_CoM + mass_i * (
-                np.dot(delta_i, delta_i) * np.identity(3) - np.outer(delta_i, delta_i) # + mass*||dist||^2*Id-dist @ dist.T 
-             )
-
-            inertia_at_com += inertia_translated
-        #print(f'inertia_at_com:\n{inertia_at_com}')
-           
         
+
         # create state dict
         return {
             'lfoot': {'pos': left_foot_pose,
@@ -535,7 +511,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             'theta_hat':{'val':np.zeros(3)},
             'corner_left':{'up_left': c_l1, 'up_right': c_l2,'down_left':c_l3,"down_right":c_l4},
             'corner_right':{'up_left': c_r1, 'up_right': c_r2,'down_left':c_r3,"down_right":c_r4},
-            'inertia':{'value': inertia_at_com}    
+            'inertia':{'value': ccrbi}    
         }
 
 if __name__ == "__main__":
