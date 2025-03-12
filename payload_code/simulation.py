@@ -29,7 +29,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             'g': 9.81,
             'h': 0.72,
             'foot_size': 0.1,
-            'step_height': 0.2,
+            'step_height': 0.02,
             'world_time_step': world.getTimeStep(),            
             'ss_duration': int(0.7/world.getTimeStep()),
             'ds_duration': int(0.3/world.getTimeStep()),
@@ -46,13 +46,12 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
                                   ## if use 'full model' then use simple_centroidal_mpc
         #model='original'
         # model='simple'                         
-  
-        momentum = 'torso + base + l_hip'  ## if you want to consire angular momentum only of that joint
+        #momentum = 'torso + base + l_hip'  ## if you want to consire angular momentum only of that joint
         #momentum='torso'
         #momentum='base'                  # choose as you wish (but for some model , some momentum might given enfeaseble solution)
         #momentum='semi'
-        #momentum='full'
-        real_walk = 'YES'     #  or 'YES' if you want that the self.desired position are the one compute by mpc
+        momentum='full'
+        real_walk = 'NO'     #  or 'YES' if you want that the self.desired position are the one compute by mpc
         
         Angular_update='NO'   # or 'YES'  if ypu want that the angolar momentum is updated by the  formula h = Iw  
 
@@ -131,7 +130,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.id = id.InverseDynamics(self.hrp4, redundant_dofs)
 
              # initialize footstep planner
-        reference = [(0.2, 0., 0)] * 5 + [(0.3, 0., -0.0)] * 10 + [(0.2, 0., 0.)] * 10
+        reference = [(0.1, 0., 0)] * 5 + [(0.1, 0., -0.0)] * 10 + [(0.2, 0., 0.)] * 10
         if self.preferences[0]=='full_model' :
          self.footstep_planner = footstep_planner_vertices.FootstepPlanner(
             reference,

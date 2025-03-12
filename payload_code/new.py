@@ -256,7 +256,7 @@ def easy_plot_2d(y1, y2, title="Trajectory"):
     plt.show()
 
 
-def compoute_corner(foot_position, foot_orientation, foot_length=0.27, foot_width=0.15):
+def compoute_corner(foot_position, foot_orientation, foot_length=0.25, foot_width=0.13):
     theta = foot_orientation[2] 
     
     half_length = foot_length / 2
