@@ -7,7 +7,7 @@ class centroidal_mpc:
   def __init__(self, initial, footstep_planner, params, CoM_ref, contact_trj_l, contact_trj_r):
     # parameters
     self.params = params
-    self.N = params['N']-90
+    self.N = params['N']-95
     self.delta = params['world_time_step']
     self.h = params['h']
     self.eta = params['eta']

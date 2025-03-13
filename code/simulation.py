@@ -51,15 +51,15 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         #momentum='torso'
         #momentum='base'                  # choose as you wish (but for some model , some momentum might given enfeaseble solution)
         #momentum='semi'
-        momentum='full'
+        #momentum='full'
         real_walk = 'YES'     #  or 'YES' if you want that the self.desired position are the one compute by mpc
         
-        Angular_update='NO'   # or 'YES'  if ypu want that the angolar momentum is updated by the  formula h = Iw  
+        Angular_update='YES'   # or 'YES'  if ypu want that the angolar momentum is updated by the  formula h = Iw  
 
         acc='NO'    #if acc = 0 then self.desired[torso or base] = np.zeros(3)
                     #if acc = YES   then i update the angular velocity derivative by inverting  the formula 
                     ##      dwh = I@dw + np.cros(w,I@w)      and so compute the desired dw
-        track='torso'        # or base
+        track='basetorsotorso'        # or base
 
         self.preferences=[model,momentum ,real_walk,Angular_update,acc,track]   # AN code , stop at 1384
         
@@ -255,9 +255,9 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
     def customPreStep(self):
         # create current and desired states
         if  self.time < 800:
-            force = np.array([.0, 0.0, -30.0])  # Newtons
+            force = np.array([.0, 0.0, -0.0])  # Newtons
             self.base.addExtForce(force)
-        self.current = self.retrieve_state() 
+        
         #print(self.current)
         #update kalman filter
         # u = np.array([self.desired['zmp']['vel'][0], self.desired['zmp']['vel'][1], self.desired['zmp']['vel'][2]])
@@ -477,8 +477,8 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         c_r1,c_r2,c_r3,c_r4=new.compoute_corner(r_foot_position,r_foot_orientation)
 
         if self.preferences[5] != 'base':
-         w_R_com=torso_orientation
-        else : w_R_com=base_orientation
+         w_R_com=self.hrp4.getBodyNode('torso').getWorldTransform().rotation()
+        else : w_R_com=self.hrp4.getBodyNode('body').getWorldTransform().rotation()
         ###############
         inertia_at_com = np.zeros((3, 3))  #CoM_I_CoM
         for body in self.hrp4.getBodyNodes():
@@ -490,7 +490,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             # distance = vector from Com_pos to c_i
             delta_i = c_i - com_position 
             inertia_i_local = body.getInertia().getMoment()  #inertia matrix wrt local frame
-            w_R_i = body.getTransform().rotation() #{w}^R_{i} --> Rot mat. describing orient. of link_i frame wrt World frame
+            w_R_i = body.getWorldTransform().rotation() #{w}^R_{i} --> Rot mat. describing orient. of link_i frame wrt World frame
 
             CoM_R_i=w_R_com.T @ w_R_i            # {CoM}^R_{i}={w}^R_{CoM}.T @ {w}^R_{i}
 
