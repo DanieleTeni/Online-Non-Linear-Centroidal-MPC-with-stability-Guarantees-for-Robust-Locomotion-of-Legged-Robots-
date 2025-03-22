@@ -38,6 +38,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             'N': 100,
             'dof': self.hrp4.getNumDofs(),
             'mass': self.hrp4.getMass(), #An: Add the mass of the robot as a default param
+            'update_contact': 'YES'
         }
 
         model='full_model'   ##    model could be 'full model', 'original' or 'simple'
@@ -47,19 +48,19 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         #model='original'
         # model='simple'                         
   
-        momentum = 'torso + base + l_hip'  ## if you want to consire angular momentum only of that joint
+        #momentum = 'torso + base + l_hip'  ## if you want to consire angular momentum only of that joint
         #momentum='torso'
         #momentum='base'                  # choose as you wish (but for some model , some momentum might given enfeaseble solution)
         #momentum='semi'
-        #momentum='full'
-        real_walk = 'YES'     #  or 'YES' if you want that the self.desired position are the one compute by mpc
+        momentum='full'
+        real_walk = self.params['update_contact']      #  or 'YES' if you want that the self.desired position are the one compute by mpc
         
-        Angular_update='YES'   # or 'YES'  if ypu want that the angolar momentum is updated by the  formula h = Iw  
+        Angular_update='NO'   # or 'YES'  if ypu want that the angolar momentum is updated by the  formula h = Iw  
 
         acc='NO'    #if acc = 0 then self.desired[torso or base] = np.zeros(3)
                     #if acc = YES   then i update the angular velocity derivative by inverting  the formula 
                     ##      dwh = I@dw + np.cros(w,I@w)      and so compute the desired dw
-        track='base'        # or base
+        track='torso'        # or base
 
         self.preferences=[model,momentum ,real_walk,Angular_update,acc,track]   # AN code , stop at 1384
         
@@ -116,26 +117,8 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         num_link=0
         for link in self.hrp4.getBodyNodes():
             
-            mass_i = link.getMass()
-            if mass_i == 0:
-                continue
-                
-            c_i = link.getLocalCOM()#Position of the CoM of link_i to the link i's ref frame
-            #print(f'link CoM pos:\n{c_i}')
-            inertia_i_localCoM = link.getInertia().getMoment()  #inertia matrix wrt local CoM
-            skew_ci = np.array([
-                [0, -c_i[2], c_i[1]],
-                [c_i[2], 0, -c_i[0]],
-                [-c_i[1], c_i[0], 0]
-            ])
-
-            inertia_i = np.zeros((6, 6))
-            inertia_i[:3, :3] = inertia_i_localCoM + mass_i * skew_ci @ skew_ci.T
-            inertia_i[:3, 3:] = mass_i * skew_ci
-            inertia_i[3:, :3] = mass_i * skew_ci.T
-            inertia_i[3:, 3:] = mass_i * np.identity(3)
-
-            #print(f'size inertia_i:\n{inertia_i}')
+            inertia_i = link.getInertia().getSpatialTensor()
+            # print(f'inertia_i:\n{inertia_i}')
             tot_inertia[6*num_link:6*(num_link+1), 6*num_link:6*(num_link+1)] = inertia_i
             #print(f'ccrbi:\n{ccrbi}')
 
@@ -317,19 +300,25 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
 
         ccrbi=self.current['inertia']['value'] 
         inv_ccrbi=np.linalg.inv(ccrbi)
-        inv_inertia_w=inv_ccrbi[:3,:3]
+        model_momentum=np.zeros(6)
+        model_momentum[0:3]=robot_state['hw']['val']
+        model_momentum[3:6]=self.params['mass']*robot_state['com']['vel']
+
+        spatial_vel_COM=inv_ccrbi @ model_momentum
+        omega_COM= spatial_vel_COM[0:3]
+        #inv_inertia_w=inv_ccrbi[:3,:3]
         if self.preferences[3] == "YES"  and self.preferences[5] != 'base ':
-            self.desired['torso']['vel']=inv_inertia_w@robot_state['hw']['val']
+            self.desired['torso']['vel']=self.hrp4.getBodyNode('torso').getWorldTransform().rotation().T@omega_COM
         if self.preferences[3] == "YES"  and self.preferences[5] == 'base ':
-            self.desired['base']['vel']=inv_inertia_w@robot_state['hw']['val']
+            self.desired['base']['vel']=self.hrp4.getBodyNode('body').getWorldTransform().rotation().T@omega_COM
         if self.preferences[4] == 0  and self.preferences[5] != 'base ':
             self.desired['torso']['acc']=np.zeros(3)
         elif self.preferences[4] == 0  and self.preferences[5] == 'base ':
           self.desired['base']['acc']= np.zeros(3)
-        if self.preferences[4] == 'YES'  and self.preferences[5] != 'base ':
-            self.desired['torso']['acc']=inv_inertia_w@ (robot_state['hw']['dot']-np.cross(self.desired['torso']['vel'],self.tot_inertia[3:6,3:6]@ self.desired['torso']['vel']))
-        if self.preferences[4] == 'YES'  and self.preferences[5] == 'base ':
-            self.desired['torso']['acc']=inv_inertia_w@ (robot_state['hw']['dot']-np.cross(self.desired['base']['vel'],self.tot_inertia[3:6,3:6]@ self.desired['base']['vel']))
+        # if self.preferences[4] == 'YES'  and self.preferences[5] != 'base ':
+        #     self.desired['torso']['acc']=inv_inertia_w@ (robot_state['hw']['dot']-np.cross(self.desired['torso']['vel'],self.tot_inertia[3:6,3:6]@ self.desired['torso']['vel']))
+        # if self.preferences[4] == 'YES'  and self.preferences[5] == 'base ':
+        #     self.desired['torso']['acc']=inv_inertia_w@ (robot_state['hw']['dot']-np.cross(self.desired['base']['vel'],self.tot_inertia[3:6,3:6]@ self.desired['base']['vel']))
                     
     
         # get torque commands using inverse dynamics
@@ -422,29 +411,56 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         else : w_R_com=self.hrp4.getBodyNode('body').getWorldTransform().rotation()
 
         Xg= np.zeros((6*hrp4.getNumBodyNodes(),6))
+        V_link= np.zeros((6*hrp4.getNumBodyNodes()))
+        h_G_check=np.zeros(3)
+        angular_momentum_at_com_check=np.zeros(3)
+        i_X_com = np.zeros((6, 6))
         num_link=0
         for link in self.hrp4.getBodyNodes():
             c_i = link.getLocalCOM()#Position of the CoM of link_i to the link i's ref frame
            
             #print(f'inertia_i_local_moment:\n{inertia_i_local}')
+            # Assume that the robot COM frame is parallel to the world frame
+            # So a distance vector in the world frame is the same as in the COM frame
             w_R_i = link.getWorldTransform().rotation() #{w}^R_{i} --> Rot mat. describing orient. of link_i frame wrt World frame
-
-            i_R_CoM=w_R_i.T @ w_R_com            # {CoM}^R_{i}={w}^R_{CoM}.T @ {w}^R_{i}
+            c_i= w_R_i@c_i
+            i_R_CoM=w_R_i.T           # {CoM}^R_{i}={w}^R_{CoM}.T @ {w}^R_{i}
             
-            com_d_i= link.getCOM()-c_i-com_position #vector sum: w_d_com+com_d_i+i_d_comi=w_d_comi=link.getCOM()
+            w_com_d_i= (link.getCOM()-com_position) #vector sum: w_d_com+com_d_i=w_d_i distace from CoM to link_i's frame, in world frame 
 
-            skew_com_d_i = np.array([
-                [0, -com_d_i[2], com_d_i[1]],
-                [com_d_i[2], 0, -com_d_i[0]],
-                [-com_d_i[1], com_d_i[0], 0]
+            skew_w_com_d_i = np.array([
+                [0, -w_com_d_i[2], w_com_d_i[1]],
+                [w_com_d_i[2], 0, -w_com_d_i[0]],
+                [-w_com_d_i[1], w_com_d_i[0], 0]
             ])
-            i_X_com = np.zeros((6, 6))
-            i_X_com[:3, :3] = i_R_CoM
-            i_X_com[:3, 3:] = np.zeros(3)
-            i_X_com[3:, :3] = i_R_CoM * skew_com_d_i.T
-            i_X_com[3:, 3:] = i_R_CoM
-
+            
+            i_X_com[0:3, 0:3] = i_R_CoM
+            i_X_com[0:3, 3:6] = np.zeros(3)
+            i_X_com[3:6, 0:3] = i_R_CoM @ skew_w_com_d_i.T
+            i_X_com[3:6, 3:6] = i_R_CoM
+            
+            # print(f'i_X_com:\n{i_X_com}')
+            # print(f'skew_com_d_i:\n{skew_com_d_i.T}')
             Xg[6*num_link:6*(num_link+1),:] = i_X_com
+
+            v_i=link.getSpatialVelocity()
+            V_link[6*num_link:6*(num_link+1)]=v_i
+
+            #hi=link.getInertia().getSpatialTensor()@v_i
+            
+            # print(f'hi:\n{hi}')
+            # print(f'angular_momentum_at_link_check:\n{angular_momentum_at_link_check}')
+
+            #h_i_to_COM=np.zeros(6)
+            #h_i_to_COM= np.identity(3)@(hi[0:3]+skew_com_d_i.T@hi[3:6])
+            #h_i_to_COM= i_X_com.T@hi
+            #print(f'h_i_to_COM:\n{h_i_to_COM}')
+            #print(f'h_i_to_COM2:\n{h_i_to_COM2}')
+            #angular_momentum_at_link_check=w_R_i@link.getAngularMomentum(-w_com_d_i)
+            #print(f'angular_momentum_at_link_check:\n{angular_momentum_at_link_check}')
+            #h_G_check+=h_i_to_COM[0:3]
+
+            #angular_momentum_at_com_check+=angular_momentum_at_link_check
             num_link=num_link+1
 
         # file_path=os.path.join(debug_folder, "centroidal composite rigid body inertia")
@@ -453,9 +469,14 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         #         file.writelines(" ".join(map(str, tot_inertia)))   
         
         ccrbi= Xg.T@self.tot_inertia @Xg
-        print(f'size ccrbi:\n{ccrbi.shape}')
-
+        hG= Xg.T@self.tot_inertia @V_link
+        #print(f'ccrbi:\n{ccrbi}')
+       
         # Get angular momentum
+
+        print(f'hG:\n{hG}')
+        # print(f'h_G_check:\n{h_G_check}')
+        # print(f'angular_momentum_at_com_check:\n{angular_momentum_at_com_check}')
 
         if self.preferences[1] == 'torso + base + l_hip' :
          angular_momentum_at_com=    self.torso.getAngularMomentum(com_position)+\
@@ -477,7 +498,9 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             angular_momentum_at_com=np.zeros(3)
             tot_link_angular_momentum=np.zeros(3)
             for body in hrp4.getBodyNodes():
-                angular_momentum_at_com+=body.getAngularMomentum(com_position)
+                w_R_link_i=body.getWorldTransform().rotation()
+                angular_momentum_at_com+=w_R_link_i@body.getAngularMomentum(com_position-body.getCOM())
+            print(f'angular_momentum_at_com:\n{angular_momentum_at_com}')
 
         c_l1,c_l2,c_l3,c_l4=new.compoute_corner(l_foot_position,l_foot_orientation)
         c_r1,c_r2,c_r3,c_r4=new.compoute_corner(r_foot_position,r_foot_orientation)

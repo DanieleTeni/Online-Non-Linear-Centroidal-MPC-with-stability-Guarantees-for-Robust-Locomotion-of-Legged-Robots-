@@ -119,8 +119,8 @@ class InverseDynamics:
 
         # weights and gains
         tasks = ['lfoot', 'rfoot', 'com', 'torso', 'base', 'joints', 'hw']
-        weights   = {'lfoot':  1., 'rfoot':  1., 'com':  1., 'torso': 1., 'base': 1., 'joints': 1.e-2, 'hw':100}
-        pos_gains = {'lfoot': 100., 'rfoot': 100., 'com':  5., 'torso': 10., 'base': 10., 'joints': 10.  , 'hw':100}
+        weights   = {'lfoot':  2., 'rfoot':  2., 'com':  2., 'torso': 1., 'base': 1., 'joints': 1.e-2, 'hw':100}
+        pos_gains = {'lfoot': 50., 'rfoot': 50., 'com':  5., 'torso': 10., 'base': 10., 'joints': 10.  , 'hw':100}
         vel_gains = {'lfoot': 10., 'rfoot': 10., 'com': 10., 'torso': 2., 'base': 2., 'joints': 1.e-1, 'hw':2}
 
         # jacobians

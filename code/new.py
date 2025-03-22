@@ -13,6 +13,10 @@ def compute_knot(foot_tra,planner):
         knot_y=[ ]
         sequence_x=[]#[0]
         sequence_y=[]
+
+        ss_duration = planner.plan[2]['ss_duration']
+        ds_duration = planner.plan[2]['ds_duration']
+
         knot_x.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][3])/2)
         knot_y.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][4])/2)
         
@@ -20,10 +24,16 @@ def compute_knot(foot_tra,planner):
         contact=planner.plan[1]['foot_id']
         knot_y.append(foot_tra.generate_feet_trajectories_at_time(0)[contact]['pos'][4]*0.6)
         #knot_y.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][4])/2)
-        sequence_x.append(200)
-        sequence_y.append(200)
-        for i in range(200,(len(planner.plan)-1)*100):
-         if (i-271)%100==0 :
+        
+        scale=ss_duration+ds_duration
+        first_time_knot=int(2*scale)
+        print(f'first_time_knot: {first_time_knot}')
+        sequence_x.append(first_time_knot)
+        sequence_y.append(first_time_knot)
+        first_contact_time=first_time_knot+ss_duration+1
+        
+        for i in range(first_time_knot,(len(planner.plan)-1)*scale):
+         if (i-first_contact_time)%scale==0 :
           knot_x.append((foot_tra.generate_feet_trajectories_at_time(i)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(i)['rfoot']['pos'][3])/2)
           sequence_x.append(i)
 
@@ -38,11 +48,11 @@ def compute_knot(foot_tra,planner):
           # knot_y.append(foot_tra.generate_feet_trajectories_at_time(i)[contact]['pos'][4]*0.5)
           # sequence_y.append(i)
           knot_y.append(foot_tra.generate_feet_trajectories_at_time(i)[contact]['pos'][4]*0.6)
-          #knot_y.append((foot_tra.generate_feet_trajectories_at_time(i)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(i)['rfoot']['pos'][4])/2)
-          #sequence_y.append(i)
-          sequence_y.append(i+30)
+          # knot_y.append((foot_tra.generate_feet_trajectories_at_time(i)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(i)['rfoot']['pos'][4])/2)
+          # sequence_y.append(i)
+          sequence_y.append(i+ds_duration)
           
-        t=(len(planner.plan)-1)*100
+        t=(len(planner.plan)-1)*scale
         knot_x.append((foot_tra.generate_feet_trajectories_at_time(t)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(t)['rfoot']['pos'][3])/2)
         knot_y.append((foot_tra.generate_feet_trajectories_at_time(t)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(t)['rfoot']['pos'][4])/2)
         sequence_x.append(t)

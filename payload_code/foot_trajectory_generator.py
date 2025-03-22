@@ -62,6 +62,8 @@ class FootTrajectoryGenerator:
     # get positions and angles for cubic interpolation
     start_pos  = self.plan[step_index - 1]['pos']
     target_pos = self.plan[step_index + 1]['pos']
+    print(f'start_pos: {start_pos}')
+    print(f'target_pos: {target_pos}')
     start_ang  = self.plan[step_index - 1]['ang']
     target_ang = self.plan[step_index + 1]['ang']
 
