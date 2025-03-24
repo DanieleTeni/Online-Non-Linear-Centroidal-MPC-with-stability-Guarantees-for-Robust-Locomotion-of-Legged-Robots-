@@ -10,21 +10,61 @@ import simple_centroidal_mpc
 import footstep_planner
 import footstep_planner_vertices 
 import inverse_dynamics as id
+import inverse_hw as idt
 import filter
 import foot_trajectory_generator as ftg
 from logger import Logger
 from logger2 import Logger2
 from logger3 import Logger3 
 import new
+from pinocchio.visualize import MeshcatVisualizer as Visualizer
+import time
+from pathlib import Path
+from function_for_pinocchio import *
+import sys
+import importlib
+
+
+import hppfcl as fcl
+
+################################ WARNING #########################################
+######## IN MY COMPUTER I HAVE AN INCOMPATIBILITY WITH THE NUMPY VERSION (DART work onnly with v< 2.xx  )
+#######  so before install pinocchio  check if your computer have same issue 
+###   in the ambient in which you run the code ,  use the command 
+#   pip list | grep numpy   
+# if you obtain numpy  2.xx then you could install pinocchio directly here so do 
+#   python -m pip install pin 
+#then you subtitue the line below with import pinocchio 
+#
+#  BUT IF YOU HAVE   : pip list | grep numpy
+#numpy                     1.26.4
+#NOT INSTALL PINOCCHIO IN YOUR AMBIENT .
+# BUT CREATE A NEW VIRTUAL ENVEIROMENT AND THEN HERE   DO  python -m pip install pin 
+# THEN SUBSTITUE PINOCCHIO_ENV_PATH  WITH YOUR PATH TO PINOCCHIO
+
+
+pinocchio_env_path='/home/daniele/pinocchio/lib/python3.10/site-packages'     ## USE YOUR PATH 
+
+sys.path.insert(0, pinocchio_env_path)
+pinocchio = importlib.import_module("pinocchio")
+
+print(f"Pinocchio version: {pinocchio.__version__}")   #if this print 3.4.0 then is ok
+
+
+
+print(f"Pinocchio path: {pinocchio.__file__}")    
+from pinocchio.visualize import MeshcatVisualizer as Visualizer
+
 
 
 debug_folder= "Debug"
 class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
-    def __init__(self, world, hrp4):
+    def __init__(self, world, hrp4,model):
         super(Hrp4Controller, self).__init__(world)
         self.world = world
         self.hrp4 = hrp4
         self.time = 0
+        self.model=model
         self.params = {
             'g': 9.81,
             'h': 0.72,
@@ -61,8 +101,9 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
                     #if acc = YES   then i update the angular velocity derivative by inverting  the formula 
                     ##      dwh = I@dw + np.cros(w,I@w)      and so compute the desired dw
         track='torso'        # or base
-
+        
         self.preferences=[model,momentum ,real_walk,Angular_update,acc,track]   # AN code , stop at 1384
+        self.PINOCCHIO = ['NO','NO']   #['YES','TRACK']   # ['YES','NO']
         
         #self.preferences=[model,'base' ,real_walk,'YES','YES','base']   better till now, stop at after 1997
         
@@ -111,6 +152,14 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.hrp4.setPosition(3, - (lsole_pos[0] + rsole_pos[0]) / 2.)
         self.hrp4.setPosition(4, - (lsole_pos[1] + rsole_pos[1]) / 2.)
         self.hrp4.setPosition(5, - (lsole_pos[2] + rsole_pos[2]) / 2.)
+        
+
+        
+        q_dart=self.hrp4.getPositions()
+        self.data = self.model.createData()
+        q0 = pinocchio.neutral(self.model)
+        q0=convert_q_Dart_into_q_Pinocchio(q_dart,q0)
+        viz.display(q0)
 
    
 
@@ -129,7 +178,11 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             "L_SHOULDER_P", "L_SHOULDER_R", "L_SHOULDER_Y", "L_ELBOW_P"]
         
         # initialize inverse dynamics
+        
         self.id = id.InverseDynamics(self.hrp4, redundant_dofs)
+        if self.PINOCCHIO[1] == 'TRACK' :
+            self.id = idt.InverseDynamics(self.hrp4, redundant_dofs)
+
 
              # initialize footstep planner
         reference = [(0.1, 0., 0)] * 5 + [(0.1, 0., -0.0)] * 10 + [(0.1, 0., 0.)] * 20
@@ -306,6 +359,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.desired['com']['vel'] = robot_state['com']['vel']
         self.desired['com']['acc'] = robot_state['com']['acc']
         self.desired['hw']['val'] = robot_state['hw']['val']
+        self.desired['hw']['dot']=robot_state['hw']['dot']
         
         self.com_ref['com']['pos'][0] = self.ref['pos_x'][self.time]
         self.com_ref['com']['pos'][1] = self.ref['pos_y'][self.time]
@@ -377,10 +431,14 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             self.desired['torso']['acc']=np.linalg.inv(inertia)@ (robot_state['hw']['dot']-np.cross(self.desired['torso']['vel'],inertia@ self.desired['torso']['vel']))
         if self.preferences[4] == 'YES'  and self.preferences[5] == 'base ':
             self.desired['torso']['acc']=np.linalg.inv(inertia)@ (robot_state['hw']['dot']-np.cross(self.desired['base']['vel'],inertia@ self.desired['base']['vel']))
+         
+
+
                     
     
         # get torque commands using inverse dynamics
         commands = self.id.get_joint_torques(self.desired, self.current, contact) 
+
         
         # set acceleration commands
         for i in range(self.params['dof'] - 6):
@@ -534,6 +592,76 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
 
             inertia_at_com += inertia_translated
         #print(f'inertia_at_com:\n{inertia_at_com}')
+
+
+        q_dart=self.hrp4.getPositions()
+        vel_dart=self.hrp4.getVelocities()
+        acc_dart=self.hrp4.getAccelerations()
+        q_pin = pinocchio.neutral(self.model)
+        q_pin=convert_q_Dart_into_q_Pinocchio(q_dart,q_pin)
+        viz.display(q_pin)
+        P=permutation_matrix(30)
+        v_pin = pinocchio.utils.zero(self.model.nv)
+        v_pin= P@vel_dart          
+        acc_dart=self.hrp4.getAccelerations()
+        a_pin=P@acc_dart
+        pinocchio.forwardKinematics(self.model, self.data, q_pin, v_pin,a_pin)
+
+        #not need this piece for this project####
+        #pinocchio.updateFramePlacements(self.model, self.data)
+        pinocchio.centerOfMass(self.model, self.data, q_pin, v_pin, a_pin)
+        pinocchio.crba(self.model, self.data, q_pin)  
+        M_pin=self.data.M
+        M_dart = self.hrp4.getMassMatrix()
+        assert np.amax(P@M_pin@P- M_dart ) <= 0.0000001
+        pinocchio.computeCoriolisMatrix(model, self.data, q_pin, v_pin)  
+
+        C_pin=self.data.C  #coriolis Matrix
+        assert np.amax( P@C_pin@P@vel_dart - self.hrp4.getCoriolisForces()) <= 0.000000001   # so we are sure that P@C_pin@P = C_dart 
+        #######################################
+
+        pinocchio.ccrba(self.model,self.data,q_pin,v_pin) #Computes the Centroidal Momentum Matrix, the Composite Ridig Body Inertia as well as the centroidal momenta according to the current joint configuration and velocity. 
+        pinocchio.dccrba(self.model,self.data,q_pin,v_pin)
+        #assert np.amax(self.data.Ag[0:3,:]@v_pin - self.params['mass']*com_velocity) <= 0.001 ,'error th elinear momentum with dart is differt from the one with pinocchio'
+                                                                                         # i do not know why but i notice that if i put 0.0001 the after some step i obtain error
+        Aq=self.data.Ag[3:6,:]
+        hw =  Aq@v_pin
+       # hw=self.data.hg.angular
+
+
+         
+        dAq=self.data.dAg[3:6,:]
+        dhw=dAq@v_pin + Aq@a_pin
+        #dhw=self.data.dhg.angular
+
+
+       # assert np.amax(Aq@v_pin- hw) == 0., 'error'  #just to be sure          
+                             ### also observe that hw = Aq@v_pin = Aq@P@ v_dart    so the matrix we need for iverse dynamics is  Aq@P  ( and since P is cosntant)
+                             ###    d(Aq@P)/dt = Aq'@P 
+
+        
+        if self.PINOCCHIO[0] == 'YES' :
+            angular_momentum_at_com=hw
+
+        # if self.PINOCCHIO == 2 :   #following idea on https://github.com/stack-of-tasks/pinocchio/issues/1362
+        #      pinocchio.computeCentroidalMomentum(self.model,self.data,q_pin,v_pin) #Computes the Centroidal momentum, a.k.a. the total momenta of the system expressed around the center of mass. 
+        #      R_base = pinocchio.Quaternion(q_pin[3:7]).matrix()
+        #      L_kin = self.data.hg.angular
+
+        #      R_b = self.data.oMi[1].rotation 
+        #      omega= v_pin[3:6]
+        #      Inertia=self.data.oMi[1].actInv(self.data.oYcrb[0])
+        #      #L = R_b * ( I * omega_b + L_kin)
+
+        #      hw= R_b@(Inertia.inertia@omega+L_kin)
+        #      angular_momentum_at_com=hw
+
+    
+
+
+
+    
+    
            
         
         # create state dict
@@ -559,7 +687,8 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             'zmp'  : {'pos': zmp,
                       'vel': np.zeros(3),
                       'acc': np.zeros(3)},
-            'hw'   : {'val': angular_momentum_at_com},
+            'matrix':{'Aq':Aq@P,'dAq':dAq@P},
+            'hw'   : {'val': angular_momentum_at_com,'dot':dhw},#angular_momentum_at_com
             'theta_hat':{'val':np.zeros(3)},
             'corner_left':{'up_left': c_l1, 'up_right': c_l2,'down_left':c_l3,"down_right":c_l4},
             'corner_right':{'up_left': c_r1, 'up_right': c_r2,'down_left':c_r3,"down_right":c_r4},
@@ -578,14 +707,45 @@ if __name__ == "__main__":
     world.setGravity([0, 0, -9.81])
     world.setTimeStep(0.01)
 
+    mesh_dir = (os.path.join(current_dir, "meshes"))
+
+    urdf_model_path = (os.path.join(current_dir, "urdf", "hrp4.urdf"))
+
+    model, collision_model, visual_model = pinocchio.buildModelsFromUrdf(
+    urdf_model_path, package_dirs=mesh_dir, root_joint=pinocchio.JointModelFreeFlyer()
+)
+    print(model)
+    try:
+      viz = Visualizer(model, visual_model, visual_model)
+      viz.initViewer(open=True)
+    except ImportError as err:
+     print(
+        "Error while initializing the viewer. "
+        "It seems you should install Python meshcat"
+     )
+     print(err)
+     sys.exit(0)
+    viz.loadViewerModel()
+    print(model)
+
     # set default inertia
     default_inertia = dart.dynamics.Inertia(1e-8, np.zeros(3), 1e-10 * np.identity(3))
     for body in hrp4.getBodyNodes():
         if body.getMass() == 0.0:
             body.setMass(1e-8)
             body.setInertia(default_inertia)
+    
+    default_mass = 1e-8
+    default_inertia_matrix = 1e-10 * np.identity(3)  
 
-    node = Hrp4Controller(world, hrp4)
+    for i in range(len(model.inertias)):  
+        if model.inertias[i].mass == 0.0:  
+            model.inertias[i] = pinocchio.Inertia(default_mass, np.zeros(3), default_inertia_matrix)
+
+
+
+
+    node = Hrp4Controller(world, hrp4,model)
 
     # create world node and add it to viewer
     viewer = dart.gui.osg.Viewer()
