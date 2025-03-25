@@ -170,7 +170,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
                 file.writelines(" ".join(map(str, self.pre_right_traj[i][0]['pos'][3:6]))+ "\n")
 
       
-        self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner)  
+        self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner,0)  
         print("ref_length:")
         #print(len(self.ref['pos_x']))
         #self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner,1)  FOR SEE GRAHP
@@ -336,11 +336,11 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         print(self.footstep_planner.plan[self.footstep_planner.get_step_index_at_time(self.time)+1]['pos'])
 
        
-        file_path=os.path.join(debug_folder, "MPC_pose_contact_ref")        
-        with open(file_path, "w") as file:
-            for i in range(24):
-                file.write("\n".join(map(str, self.footstep_planner.plan[i]['pos'].T)) + "\n")
-                file.write("end"+ "\n")
+        # file_path=os.path.join(debug_folder, "MPC_pose_contact_ref")        
+        # with open(file_path, "w") as file:
+        #     for i in range(24):
+        #         file.write("\n".join(map(str, self.footstep_planner.plan[i]['pos'].T)) + "\n")
+        #         file.write("end"+ "\n")
          
         # print("left foot position trj:")
         # print(self.desired['lfoot']['pos'][3:6])

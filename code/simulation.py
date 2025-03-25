@@ -132,7 +132,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.id = id.InverseDynamics(self.hrp4, redundant_dofs)
 
              # initialize footstep planner
-        reference = [(0.1, 0., 0)] * 5 + [(0.1, 0., -0.0)] * 10 + [(0.1, 0., 0.)] * 20
+        reference = [(0.1, 0., 0)] * 5 + [(0.1, 0., -0.0)] * 10 + [(0.1, 0., 0.)] * 15
         if self.preferences[0]=='full_model' :
          self.footstep_planner = footstep_planner_vertices.FootstepPlanner(
             reference,
@@ -171,7 +171,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
                 file.writelines(" ".join(map(str, self.pre_right_traj[i][0]['pos'][3:6]))+ "\n")
 
       
-        self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner)  
+        self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner,0)  
         print("ref_length:")
         #print(len(self.ref['pos_x']))
         #self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner,1)  FOR SEE GRAHP
@@ -505,15 +505,15 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             # distance = vector from Com_pos to c_i
              
             inertia_i_localCoM = body.getInertia().getMoment()  #inertia matrix wrt local CoM frame
-            d_fr_i_CoMi =   body.getLocalCOM()
-            delta_i = c_i - com_position - d_fr_i_CoMi  #distance from CoM to link frame i
-            skew_dfri = np.array([
-                [0              ,-d_fr_i_CoMi[2] ,d_fr_i_CoMi[1]],
-                [d_fr_i_CoMi[2] , 0              ,-d_fr_i_CoMi[0]],
-                [-d_fr_i_CoMi[1], d_fr_i_CoMi[0]        ,0]
-            ])
+            d_w_CoMi =   body.getCOM()
+            delta_i = com_position - d_w_CoMi  #distance from CoM to link frame i
+            # skew_dfri = np.array([
+            #     [0              ,-d_fr_i_CoMi[2] ,d_fr_i_CoMi[1]],
+            #     [d_fr_i_CoMi[2] , 0              ,-d_fr_i_CoMi[0]],
+            #     [-d_fr_i_CoMi[1], d_fr_i_CoMi[0]        ,0]
+            # ])
             # inertia_i_local = np.zeros((6, 6))
-            inertia_i_local = inertia_i_localCoM + (mass_i * skew_dfri @ skew_dfri.T)*0
+            inertia_i_local = inertia_i_localCoM
             # inertia_i_local[:3, 3:] = mass_i * skew_di
             # inertia_i_local[3:, :3] = mass_i * skew_di.T
             # inertia_i_local[3:, 3:] = mass_i * np.identity(3)

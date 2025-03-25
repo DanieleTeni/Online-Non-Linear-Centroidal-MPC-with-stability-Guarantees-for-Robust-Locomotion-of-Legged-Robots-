@@ -31,9 +31,9 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             'foot_size': 0.1,
             'step_height': 0.02,
             'world_time_step': world.getTimeStep(),            
-            'ss_duration': int(0.7/world.getTimeStep()),
-            'ds_duration': int(0.3/world.getTimeStep()),
-            'first_swing': 'lfoot',
+            'ss_duration': 70,
+            'ds_duration': 30,
+            'first_swing': 'rfoot',
             'µ': 0.5,
             'N': 100,
             'dof': self.hrp4.getNumDofs(),
@@ -55,7 +55,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         momentum='full'
         real_walk = self.params['update_contact']      #  or 'YES' if you want that the self.desired position are the one compute by mpc
         
-        Angular_update='NO'   # or 'YES'  if ypu want that the angolar momentum is updated by the  formula h = Iw  
+        Angular_update='YES'   # or 'YES'  if ypu want that the angolar momentum is updated by the  formula h = Iw  
 
         acc='NO'    #if acc = 0 then self.desired[torso or base] = np.zeros(3)
                     #if acc = YES   then i update the angular velocity derivative by inverting  the formula 
@@ -290,19 +290,19 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
                 self.desired[link][key] = (self.desired['lfoot'][key][:3] + self.desired['rfoot'][key][:3]) / 2.
 
 
-        if self.preferences[2] == 'YES'  and self.preferences[0] != 'simple' :
-                self.desired['lfoot']['pos'][3:6] = robot_state['pos_contact_left']['val'] 
-                self.desired['rfoot']['pos'][3:6] = robot_state['pos_contact_right']['val']
-                #print("Real walk enable") 
-                if self.preferences[0] == 'full_model' :
-                   self.desired['lfoot']['pos'][0:3] = robot_state['ang_contact_left']['val'] 
-                   self.desired['rfoot']['pos'][0:3] = robot_state['ang_contact_right']['val']
+        # if self.preferences[2] == 'YES'  and self.preferences[0] != 'simple' :
+        #         self.desired['lfoot']['pos'][3:6] = robot_state['pos_contact_left']['val'] 
+        #         self.desired['rfoot']['pos'][3:6] = robot_state['pos_contact_right']['val']
+        #         #print("Real walk enable") 
+        #         if self.preferences[0] == 'full_model' :
+        #            self.desired['lfoot']['pos'][0:3] = robot_state['ang_contact_left']['val'] 
+        #            self.desired['rfoot']['pos'][0:3] = robot_state['ang_contact_right']['val']
 
         ccrbi=self.current['inertia']['value'] 
         inv_ccrbi=np.linalg.inv(ccrbi)
         model_momentum=np.zeros(6)
         model_momentum[0:3]=robot_state['hw']['val']
-        model_momentum[3:6]=self.params['mass']*robot_state['com']['vel']
+        model_momentum[3:6]=self.params['mass']@robot_state['com']['vel']
 
         spatial_vel_COM=inv_ccrbi @ model_momentum
         omega_COM= spatial_vel_COM[0:3]
@@ -414,6 +414,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         V_link= np.zeros((6*hrp4.getNumBodyNodes()))
         h_G_check=np.zeros(3)
         angular_momentum_at_com_check=np.zeros(3)
+        ccrbi=np.zeros((6,6))
         i_X_com = np.zeros((6, 6))
         num_link=0
         for link in self.hrp4.getBodyNodes():
@@ -426,7 +427,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             c_i= w_R_i@c_i
             i_R_CoM=w_R_i.T           # {CoM}^R_{i}={w}^R_{CoM}.T @ {w}^R_{i}
             
-            w_com_d_i= (link.getCOM()-com_position) #vector sum: w_d_com+com_d_i=w_d_i distace from CoM to link_i's frame, in world frame 
+            w_com_d_i= (-link.getCOM()+com_position) #vector sum: w_d_com+com_d_i=w_d_i distace from CoM to link_i's frame, in world frame 
 
             skew_w_com_d_i = np.array([
                 [0, -w_com_d_i[2], w_com_d_i[1]],
@@ -445,28 +446,12 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
 
             v_i=link.getSpatialVelocity()
             V_link[6*num_link:6*(num_link+1)]=v_i
-
-            #hi=link.getInertia().getSpatialTensor()@v_i
-            
-            # print(f'hi:\n{hi}')
-            # print(f'angular_momentum_at_link_check:\n{angular_momentum_at_link_check}')
-
-            #h_i_to_COM=np.zeros(6)
-            #h_i_to_COM= np.identity(3)@(hi[0:3]+skew_com_d_i.T@hi[3:6])
-            #h_i_to_COM= i_X_com.T@hi
-            #print(f'h_i_to_COM:\n{h_i_to_COM}')
-            #print(f'h_i_to_COM2:\n{h_i_to_COM2}')
-            #angular_momentum_at_link_check=w_R_i@link.getAngularMomentum(-w_com_d_i)
-            #print(f'angular_momentum_at_link_check:\n{angular_momentum_at_link_check}')
-            #h_G_check+=h_i_to_COM[0:3]
-
-            #angular_momentum_at_com_check+=angular_momentum_at_link_check
             num_link=num_link+1
 
-        # file_path=os.path.join(debug_folder, "centroidal composite rigid body inertia")
-        # with open(file_path, "w") as file:
-        #     #for i in range(len(self.pre_left_traj)):
-        #         file.writelines(" ".join(map(str, tot_inertia)))   
+        # # file_path=os.path.join(debug_folder, "centroidal composite rigid body inertia")
+        # # with open(file_path, "w") as file:
+        # #     #for i in range(len(self.pre_left_traj)):
+        # #         file.writelines(" ".join(map(str, tot_inertia)))   
         
         ccrbi= Xg.T@self.tot_inertia @Xg
         hG= Xg.T@self.tot_inertia @V_link
@@ -474,7 +459,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
        
         # Get angular momentum
 
-        print(f'hG:\n{hG}')
+        #print(f'hG:\n{hG}')
         # print(f'h_G_check:\n{h_G_check}')
         # print(f'angular_momentum_at_com_check:\n{angular_momentum_at_com_check}')
 
@@ -499,7 +484,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             tot_link_angular_momentum=np.zeros(3)
             for body in hrp4.getBodyNodes():
                 w_R_link_i=body.getWorldTransform().rotation()
-                angular_momentum_at_com+=w_R_link_i@body.getAngularMomentum(com_position-body.getCOM())
+                angular_momentum_at_com+=w_R_link_i@body.getAngularMomentum(-com_position+body.getCOM())
             print(f'angular_momentum_at_com:\n{angular_momentum_at_com}')
 
         c_l1,c_l2,c_l3,c_l4=new.compoute_corner(l_foot_position,l_foot_orientation)

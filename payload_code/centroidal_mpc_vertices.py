@@ -23,8 +23,8 @@ class centroidal_mpc:
     self.debug = 0
     self.update_contact_flag = 0
     #Change of coordinates Gains
-    self.k1=5#3--5:1.5kg
-    self.k2=5#--5:1.5kg
+    self.k1=5#3--5:1.5kg 6:1.9
+    self.k2=5#--5:1.5kg 0.5:1.9
     
     #To build the Non-slippage constraints
     mu= 0.5
@@ -211,7 +211,7 @@ class centroidal_mpc:
 
     for i in range(self.N):
       self.u_n_mat[:,i]=-(self.k1+self.k2)*self.z2_mat[:,i]+\
-                        self.k1*self.k1*self.z1_mat[:,i]-gravity+self.opti_com_ref[6:9,i]-self.opti_thetahat[:,i]
+                        self.k1*self.k1*self.z1_mat[:,i]-gravity+self.opti_com_ref[6:9,i]*0-self.opti_thetahat[:,i]/self.mass
 
     #Total linear force evaluated by the MPCs
     self.Vl_mat = cs.MX.zeros(3,self.N)
@@ -358,7 +358,7 @@ class centroidal_mpc:
         cost += 1000*cs.sumsqr(self.opti_hw[:,i+1]) + \
               1*cs.sumsqr(self.opti_CoM[0,i+1]-self.opti_com_ref[0,i]) + \
               1*cs.sumsqr(self.opti_CoM[1,i+1]-self.opti_com_ref[1,i]) + \
-              4000*cs.sumsqr(self.opti_CoM[2,i+1]-self.opti_com_ref[2,i]) + \
+              9000*cs.sumsqr(self.opti_CoM[2,i+1]-self.opti_com_ref[2,i]) + \
               1000*cs.sumsqr((self.opti_pos_contact_l[:,i]-self.opti_pos_contact_l_ref[:,i])*self.opti_contact_left[i]) + \
               1000*cs.sumsqr((self.opti_pos_contact_r[:,i]-self.opti_pos_contact_r_ref[:,i])*self.opti_contact_right[i]) + \
               1000000*cs.sumsqr((self.opti_ang_contact_l[i]-self.opti_ang_contact_l_ref[i])*self.opti_contact_left[i]) + \
@@ -403,7 +403,7 @@ class centroidal_mpc:
     com_pos=state[0:3]
     com_vel=state[3:6]
     #hw
-    #theta
+    theta_hat=state[9:12]
     ang_rotvec_l=state[12]
     pos_lc=state[13:16]
     ang_rotvec_r=state[16]
@@ -481,13 +481,13 @@ class centroidal_mpc:
 
     # Centroidal dynamic with disturbance estimator theta hat, contact dynamics
     dcom=com_vel 
-    ddcom= gravity+(1/mass)*(Vl+Vr)
+    ddcom= gravity+(1/mass)*(Vl+Vr+theta_hat)
     dhw= (torque_l)+(torque_r)
     v_left= (1-contact_left)*vel_left
     v_right= (1-contact_right)*vel_right
     omega_l=(1-contact_left)*omega_left
     omega_r=(1-contact_right)*omega_right
-    dthetahat= z2
+    dthetahat= (1/mass)*z2
 
     return cs.vertcat(dcom,ddcom,dhw,dthetahat,omega_l,v_left,omega_r,v_right)
 
@@ -510,6 +510,8 @@ class centroidal_mpc:
 
   def solve(self, current, t):
     print(f'time in solve():{t}')
+    #print(f'theta_hat:{self.model_state['theta_hat']['val']}')
+    
     self.current_state = np.array([current['com']['pos'][0],       current['com']['pos'][1],       current['com']['pos'][2],
                                    current['com']['vel'][0],       current['com']['vel'][1],       current['com']['vel'][2],
                       current['hw']['val'][0],        current['hw']['val'][1],   current['hw']['val'][2],
@@ -720,7 +722,8 @@ class centroidal_mpc:
     Vl_mat=self.u[0:3]+self.u[3:6]+self.u[6:9]+self.u[9:12]
     Vr_mat=self.u[12:15]+self.u[15:18]+self.u[18:21]+self.u[21:24]
     
-    CoM_acc=(1/self.mass)*(contact_status_l[0]*Vl_mat+contact_status_r[0]*Vr_mat).T+np.array([0, 0,- self.g])
+    theta_hat=self.x[9:12]
+    CoM_acc=(1/self.mass)*(contact_status_l[1]*Vl_mat+contact_status_r[1]*Vr_mat+theta_hat).T+np.array([0, 0,- self.g])
 
     #update the return structure
     self.model_state['com']['pos'] = np.array([self.x[0], self.x[1], self.x[2]])
@@ -734,6 +737,9 @@ class centroidal_mpc:
     self.model_state['ang_contact_right']['val'] = self.x[16]
     self.model_state['pos_contact_right']['val'] = np.array([self.x[17], self.x[18], self.x[19]])
 
+    z1=self.model_state['com']['pos']-com_ref_sample_horizon[0:3,0]
+    z2=self.k1*z1+(self.model_state['com']['vel']-com_ref_sample_horizon[3:6,0])
+    print(f'z2:{z2}')
     
     print(f'Pos_contact_curr_left:{self.x_collect[13:16,0]}')
     print(f'Pos_contact_curr_right:{self.x_collect[17:20,0]}')
