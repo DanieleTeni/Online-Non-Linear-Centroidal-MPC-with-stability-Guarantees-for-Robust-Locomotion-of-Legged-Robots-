@@ -17,7 +17,6 @@ from logger import Logger
 from logger2 import Logger2
 from logger3 import Logger3 
 import new
-from pinocchio.visualize import MeshcatVisualizer as Visualizer
 import time
 from pathlib import Path
 from function_for_pinocchio import *
@@ -53,7 +52,9 @@ print(f"Pinocchio version: {pinocchio.__version__}")   #if this print 3.4.0 then
 
 
 print(f"Pinocchio path: {pinocchio.__file__}")    
-from pinocchio.visualize import MeshcatVisualizer as Visualizer
+visualize = importlib.import_module("pinocchio.visualize")
+Visualizer = visualize.MeshcatVisualizer
+
 
 
 
