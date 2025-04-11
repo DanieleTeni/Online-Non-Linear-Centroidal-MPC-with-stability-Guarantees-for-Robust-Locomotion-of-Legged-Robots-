@@ -123,9 +123,14 @@ class centroidal_mpc:
     # optimization problem setup
     self.opt = cs.Opti()
     p_opts = {"expand": True,"print_time":False}
-    s_opts = {"max_iter": 20000,"print_level": False,"tol":0.001}
+    s_opts = {"max_iter": 1000,"print_level": False,"tol":0.001}
     #Set up a proper optimal solver
     self.opt.solver('ipopt',p_opts,s_opts) #An: Use different solver, refer to C++ code
+
+    # self.opt = cs.Opti('conic')
+    # p_opts = {'expand': True}
+    # s_opts = {'max_iter': 1000, 'verbose': False}
+    # self.opt.solver('osqp', p_opts, s_opts)
 
     #  # optimization problem
     # self.opt = cs.Opti('conic')
@@ -356,8 +361,8 @@ class centroidal_mpc:
               1*cs.sumsqr(self.opti_CoM[0,i+1]-self.opti_com_ref[0,i]) + \
               1*cs.sumsqr(self.opti_CoM[1,i+1]-self.opti_com_ref[1,i]) + \
               4000*cs.sumsqr(self.opti_CoM[2,i+1]-self.opti_com_ref[2,i]) + \
-              1000*cs.sumsqr((self.opti_pos_contact_l[:,i]-self.opti_pos_contact_l_ref[:,i])*self.opti_contact_left[i]) + \
-              1000*cs.sumsqr((self.opti_pos_contact_r[:,i]-self.opti_pos_contact_r_ref[:,i])*self.opti_contact_right[i]) + \
+              1000*cs.sumsqr((self.opti_pos_contact_l[:,i]-self.opti_pos_contact_l_ref[:,i])) + \
+              1000*cs.sumsqr((self.opti_pos_contact_r[:,i]-self.opti_pos_contact_r_ref[:,i])) + \
               1000000*cs.sumsqr((self.opti_ang_contact_l[i]-self.opti_ang_contact_l_ref[i])*self.opti_contact_left[i]) + \
               1000000*cs.sumsqr((self.opti_ang_contact_r[i]-self.opti_ang_contact_r_ref[i])*self.opti_contact_right[i]) + \
               10*cs.sumsqr(self.aux_forces_average_l_mat[:,i]-self.opti_v1l_force[:,i])*self.opti_contact_left[i] + \
@@ -479,7 +484,7 @@ class centroidal_mpc:
     # Centroidal dynamic with disturbance estimator theta hat, contact dynamics
     dcom=com_vel 
     ddcom= gravity+(1/mass)*(Vl+Vr+theta_hat)
-    dhw= (torque_l)+(torque_r)
+    dhw= -(torque_l)-(torque_r)
     v_left= (1-contact_left)*vel_left
     v_right= (1-contact_right)*vel_right
     omega_l=(1-contact_left)*omega_left
@@ -732,10 +737,10 @@ class centroidal_mpc:
     self.model_state['pos_contact_right']['val'] = np.array([self.x[17], self.x[18], self.x[19]])
 
     
-    print(f'Pos_contact_curr_left:{self.x_collect[13:16,0]}')
-    print(f'Pos_contact_curr_right:{self.x_collect[17:20,0]}')
-    # print(f'Pos_contact_left_horizon:{self.x_collect[13:16,:]}')
-    # print(f'Pos_contact_right_horizon:{self.x_collect[17:20,:]}')
+    # print(f'Pos_contact_curr_left:{self.x_collect[13:16,0]}')
+    # print(f'Pos_contact_curr_right:{self.x_collect[17:20,0]}')
+    print(f'Pos_contact_left_horizon:{self.x_collect[13:16,:]}')
+    print(f'Pos_contact_right_horizon:{self.x_collect[17:20,:]}')
     #print(f'Theta_hat:{self.x[9:12]}')
 
     #An: Need to add here the output of mpc for contact pos -> update them to the footstep planner list

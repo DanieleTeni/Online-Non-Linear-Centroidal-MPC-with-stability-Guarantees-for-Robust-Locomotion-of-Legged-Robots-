@@ -7,7 +7,7 @@ class centroidal_mpc:
   def __init__(self, initial, footstep_planner, params, CoM_ref, contact_trj_l, contact_trj_r):
     # parameters
     self.params = params
-    self.N = params['N']-90
+    self.N = params['N']-95
     self.delta = params['world_time_step']
     self.h = params['h']
     self.eta = params['eta']
@@ -19,8 +19,8 @@ class centroidal_mpc:
     self.initial = initial
     self.footstep_planner = footstep_planner
     self.sigma = lambda t, t0, t1: np.clip((t - t0) / (t1 - t0), 0, 1) # piecewise linear sigmoidal function
-    self.k1=20
-    self.k2=0.5
+    self.k1=6
+    self.k2=1
     mu= 0.5
     d= params['foot_size']/2
     self.debug_folder= "Debug"
@@ -271,8 +271,8 @@ class centroidal_mpc:
     print(self.current_state[12:15])
     print(self.current_state[15:18])
     #print("Right foot current state:")
-    print("hw current state:")
-    print(self.current_state[6:9])
+    # print("hw current state:")
+    # print(self.current_state[6:9])
     
     self.opt.set_value(self.opti_x0_param, self.current_state)
 

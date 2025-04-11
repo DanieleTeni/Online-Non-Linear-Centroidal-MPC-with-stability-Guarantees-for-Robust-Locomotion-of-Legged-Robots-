@@ -23,8 +23,8 @@ class centroidal_mpc:
     self.debug = 0
     self.update_contact_flag = 0
     #Change of coordinates Gains
-    self.k1=5#3--5:1.5kg 6:1.9
-    self.k2=5#--5:1.5kg 0.5:1.9
+    self.k1=7#3--5:1.5kg 6:1.9
+    self.k2=3#--5:1.5kg 0.5:1.9
     
     #To build the Non-slippage constraints
     mu= 0.5
@@ -226,7 +226,7 @@ class centroidal_mpc:
                           self.z1_mat[:,i].T@self.z2_mat[:,i]+self.z2_mat[:,i].T@((self.Vl_mat[:,i]+self.Vr_mat[:,i])-self.u_n_mat[:,i])<=0.0)
 
     #An: angular momentum constraint:
-    for i in range(self.N-(self.N+1)*1):
+    for i in range(self.N-(self.N-1)*1):
       self.opt.subject_to(self.opti_hw[:,i].T@self.opti_hw[:,i]>=self.opti_hw[:,i+1].T@self.opti_hw[:,i+1])
     #self.opt.subject_to(self.opti_hw[:,i].T@self.opti_hw[:,i]<=100)
     # for i in range(self.N):
@@ -482,7 +482,7 @@ class centroidal_mpc:
     # Centroidal dynamic with disturbance estimator theta hat, contact dynamics
     dcom=com_vel 
     ddcom= gravity+(1/mass)*(Vl+Vr+theta_hat)
-    dhw= (torque_l)+(torque_r)
+    dhw= -(torque_l)-(torque_r)
     v_left= (1-contact_left)*vel_left
     v_right= (1-contact_right)*vel_right
     omega_l=(1-contact_left)*omega_left

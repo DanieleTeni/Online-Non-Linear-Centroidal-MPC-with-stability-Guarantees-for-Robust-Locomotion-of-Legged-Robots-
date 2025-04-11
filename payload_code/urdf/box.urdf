@@ -11,8 +11,8 @@
             <inertia ixx="0.093858" ixy="0.0" ixz="0.0" iyy="0.006107" iyz="0.0" izz="0.096107"/> -->
 
 
-            <!-- <mass value="2.0"/>
-            <inertia ixx="0.083428" ixy="0.0" ixz="0.0" iyy="0.005428" iyz="0.0" izz="0.085428"/>  -->
+            <mass value="2.0"/>
+            <inertia ixx="0.083428" ixy="0.0" ixz="0.0" iyy="0.005428" iyz="0.0" izz="0.085428"/> 
             <!-- <mass value="1.9"/>
             <inertia ixx="0.079256" ixy="0.0" ixz="0.0" iyy="0.005156" iyz="0.0" izz="0.081156"/> -->
 <!--             
@@ -32,8 +32,8 @@
 
 
 
-            <mass value="1.5"/>
-            <inertia ixx="0.062571" ixy="0.0" ixz="0.0" iyy="0.004071" iyz="0.0" izz="0.064071"/>
+            <!-- <mass value="1.5"/>
+            <inertia ixx="0.062571" ixy="0.0" ixz="0.0" iyy="0.004071" iyz="0.0" izz="0.064071"/> -->
 <!-- 
             <mass value="1.0"/>
             <inertia ixx="0.041714" ixy="0.0" ixz="0.0" iyy="0.002714" iyz="0.0" izz="0.042714"/>  -->

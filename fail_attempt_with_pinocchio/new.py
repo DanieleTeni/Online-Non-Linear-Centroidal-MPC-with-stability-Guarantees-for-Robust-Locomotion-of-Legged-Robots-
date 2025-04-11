@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import math
 
-def compute_knot(foot_tra,planner):
+def compute_knot(foot_tra,planner,first_knot):
         knot_x=[]
         knot_y=[ ]
         sequence_x=[]#[0]
@@ -17,9 +17,10 @@ def compute_knot(foot_tra,planner):
         ss_duration = planner.plan[2]['ss_duration']
         ds_duration = planner.plan[2]['ds_duration']
 
-        knot_x.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][3])/2)
-        knot_y.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][4])/2)
-        
+        knot_x.append(first_knot[0])
+        knot_y.append((first_knot[1]))
+        #knot_x.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][3])/2)
+        #knot_y.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][3])/2)
         knot_x.append((foot_tra.generate_feet_trajectories_at_time(0)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(0)['rfoot']['pos'][3])/2)
         contact=planner.plan[1]['foot_id']
         knot_y.append(foot_tra.generate_feet_trajectories_at_time(0)[contact]['pos'][4]*0.6)
@@ -50,7 +51,7 @@ def compute_knot(foot_tra,planner):
           knot_y.append(foot_tra.generate_feet_trajectories_at_time(i)[contact]['pos'][4]*0.6)
           # knot_y.append((foot_tra.generate_feet_trajectories_at_time(i)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(i)['rfoot']['pos'][4])/2)
           # sequence_y.append(i)
-          sequence_y.append(i+ds_duration)
+          sequence_y.append(i+int(ds_duration))
           
         t=(len(planner.plan)-1)*scale
         knot_x.append((foot_tra.generate_feet_trajectories_at_time(t)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(t)['rfoot']['pos'][3])/2)
@@ -58,12 +59,12 @@ def compute_knot(foot_tra,planner):
         sequence_x.append(t)
         sequence_y.append(t)
         plot_spline(knot_x)
-        plot_spline(knot_y)
+        plot_spline_y(knot_y)
         return knot_x,knot_y,sequence_x,sequence_y
 
 
-def references(foot_tra,planner,SHOW_PLOT=1):
-         knot_x,knot_y,sequence_x,sequence_y=compute_knot(foot_tra,planner)
+def references(foot_tra,planner,first_knot,SHOW_PLOT=1):
+         knot_x,knot_y,sequence_x,sequence_y=compute_knot(foot_tra,planner,first_knot)
          co_x = quintic_spline(knot_x)  # Get optimal coefficients from solver
          co_x = np.array(co_x.full()) 
          co_y = quintic_spline(knot_y)  # Get optimal coefficients from solver
@@ -91,7 +92,7 @@ def references(foot_tra,planner,SHOW_PLOT=1):
          ref_acc_y=built_the_acceleration(knot_y,sequence_y,co_y)
          ref_acc_y = np.concatenate(ref_acc_y).tolist()
 
-         ref_pos_z = np.full(len(ref_pos_x),0.7)
+         ref_pos_z = np.full(len(ref_pos_x),0.72)
          ref_vel_z = np.zeros(len(ref_pos_x))
          ref_acc_z = np.zeros(len(ref_pos_x))
 
@@ -151,6 +152,37 @@ def quintic_spline(x):
         p_opt = sol['x']
         return p_opt
 
+def quintic_spline_y(x): 
+        n=len(x)
+        p=cs.MX.sym('p',6*n)
+        c=[]
+
+
+        for i in range (0,n-1):     ### position costrain
+            c.append(x[i]-p[6*i])
+            c.append(x[i+1]- ( p[6*i]+p[6*i+1]+p[6*i+2]+p[6*i+3]+p[6*i+4]+p[6*i+5]))
+
+
+        c.append(p[1])       ##velocity initial and final constrain 
+        i=0
+        c.append(p[6*i+1]+2*p[6*i+2]+3*p[6*i+3]+4*p[6*i+4]+5*p[6*i+5])
+        #c.append(p[6*(n-1)+1])
+        for i in range (1,n-3):
+            c.append(p[6*i+1]+2*p[6*i+2]+3*p[6*i+3]+4*p[6*i+4]+5*p[6*i+5])    ##velocity constrain fort continuity
+            c.append(p[6*(i+1)+1])
+
+        c.append(2*p[2] )      ##acc initial and final constrain
+        c.append(2*p[6*(n-1)+2])
+        for i in range (0,n-1):
+            c.append(2*p[6*i+2]+6*p[6*i+3]+12*p[6*i+4]+20*p[6*i+5]-2*p[6*(i+1)+2])       ##acceleratino constrain for continuity
+
+
+        contrain_eq=cs.vertcat(*c)
+        nlp = {'x': p, 'f': 0, 'g': contrain_eq}
+        solver = cs.nlpsol('solver', 'ipopt', nlp)
+        sol = solver(lbg=0, ubg=0)   
+        p_opt = sol['x']
+        return p_opt
 
 
 
@@ -182,6 +214,33 @@ def plot_spline(knot):
   plt.grid()
   plt.show()
 
+def plot_spline_y(knot):  
+  p_coeff = quintic_spline_y(knot)  # Get optimal coefficients from solver
+  p_coeff_numpy = np.array(p_coeff.full())  # Convert to NumPy array
+#print(p_coeff_numpy )
+# Plotting the spline 
+  n = len(knot) - 1  # Number of segments
+  t_vals = np.linspace(0, 1, 1000)  # 100 points per segment
+  y_vals = []
+
+  for i in range(n):
+     # Extract coefficients for the i-th segment
+      a0, a1, a2, a3, a4, a5 = p_coeff_numpy[6*i:6*i+6]  # Coefficients of segment i
+      y_segment = a0 + a1*t_vals + a2*t_vals**2 + a3*t_vals**3 + a4*t_vals**4 + a5*t_vals**5
+      y_vals.extend(y_segment)  # Add segment values to the list
+
+# Generate x-axis values for the plot
+  x_plot = np.linspace(0, n, len(y_vals))
+
+# Plot the quintic spline and control points
+  plt.plot(x_plot, y_vals, label="Quintic Spline", linewidth=2)
+  plt.scatter(range(n+1), knot, color='red', label="Control Points")  # Known points
+  plt.legend()
+  plt.xlabel("Interval")
+  plt.ylabel("Value")
+  plt.title("Quintic Spline")
+  plt.grid()
+  plt.show()
 
 
 

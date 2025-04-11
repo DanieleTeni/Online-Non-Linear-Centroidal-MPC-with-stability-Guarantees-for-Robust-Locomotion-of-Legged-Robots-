@@ -28,8 +28,8 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.params = {
             'g': 9.81,
             'h': 0.72,
-            'foot_size': 0.1,
-            'step_height': 0.02,
+            'foot_size': 0.05,
+            'step_height': 0.05,
             'world_time_step': world.getTimeStep(),            
             'ss_duration': 7*10,
             'ds_duration': 3*10,
@@ -112,7 +112,9 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.hrp4.setPosition(4, - (lsole_pos[1] + rsole_pos[1]) / 2.)
         self.hrp4.setPosition(5, - (lsole_pos[2] + rsole_pos[2]) / 2.)
 
-   
+        # for body in hrp4.getBodyNodes():
+        w_R_link_i=self.torso.getTransform(withRespectTo=dart.dynamics.Frame.World(), inCoordinatesOf=dart.dynamics.Frame.World()).rotation()
+        print(f"Link {body} frame rotation :{w_R_link_i}")
 
    
         # initialize state
@@ -132,7 +134,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.id = id.InverseDynamics(self.hrp4, redundant_dofs)
 
              # initialize footstep planner
-        reference = [(0.1, 0., 0)] * 5 + [(0.1, 0., -0.0)] * 10 + [(0.1, 0., 0.)] * 15
+        reference = [(0.1, 0., 0)] * 5 + [(0.1, 0., -0.0)] * 10 + [(0.1, 0., 0.)] * 30
         if self.preferences[0]=='full_model' :
          self.footstep_planner = footstep_planner_vertices.FootstepPlanner(
             reference,
@@ -256,7 +258,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
     def customPreStep(self):
         # create current and desired states
         if  self.time >1300 and self.time < 1400:
-            force = np.array([.0, 0.0, -0.0])  # 1.8 Newtons max
+            force = np.array([.0, 1.1, -0.0])  # 1.8 Newtons max
             self.base.addExtForce(force)
             self.torso.addExtForce(force)
         
@@ -484,7 +486,8 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             angular_momentum_at_com=np.zeros(3)
             for body in hrp4.getBodyNodes():
                 w_R_link_i=body.getWorldTransform().rotation()
-                angular_momentum_at_com+=w_R_link_i@body.getAngularMomentum((-com_position+body.getCOM()))
+                #angular_momentum_at_com+=w_R_link_i@body.getAngularMomentum((-com_position+body.getCOM()))
+                angular_momentum_at_com+=w_R_link_i@body.getAngularMomentum(w_R_link_i.T@(com_position-body.getWorldTransform().translation()))
         
          
         

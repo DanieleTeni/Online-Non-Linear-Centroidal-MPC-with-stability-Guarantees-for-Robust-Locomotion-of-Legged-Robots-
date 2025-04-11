@@ -19,8 +19,8 @@ class centroidal_mpc:
     self.initial = initial
     self.footstep_planner = footstep_planner
     self.sigma = lambda t, t0, t1: np.clip((t - t0) / (t1 - t0), 0, 1) # piecewise linear sigmoidal function
-    self.k1=20
-    self.k2=0.5
+    self.k1=6
+    self.k2=1
     mu= 0.5
     d= params['foot_size']/2
     self.debug_folder= "Debug"

@@ -170,7 +170,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
                 file.writelines(" ".join(map(str, self.pre_right_traj[i][0]['pos'][3:6]))+ "\n")
 
       
-        self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner,0)  
+        self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner)  
         print("ref_length:")
         #print(len(self.ref['pos_x']))
         #self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner,1)  FOR SEE GRAHP
@@ -306,10 +306,12 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.desired['com']['acc'] = robot_state['com']['acc']
         self.desired['hw']['val'] = robot_state['hw']['val']
         
-        self.com_ref['com']['pos'][0] = self.ref['pos_x'][self.time]
-        self.com_ref['com']['pos'][1] = self.ref['pos_y'][self.time]
-        self.com_ref['com']['pos'][2] = self.ref['pos_z'][self.time]
-        
+        com_ref=np.zeros(3)
+        com_ref[0] = self.ref['pos_x'][self.time]
+        com_ref[1] = self.ref['pos_y'][self.time]
+        com_ref[2] = self.ref['pos_z'][self.time]
+
+        self.com_ref['com']['pos'] = com_ref
         # self.com_ref['com']['pos'][0] = self.ref['pos_x'][self.time]
         # self.com_ref['com']['pos'][0] = self.ref['pos_x'][self.time]
         # self.com_ref['com']['pos'][0] = self.ref['pos_x'][self.time]
@@ -388,7 +390,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.corner_left=self.current['corner_left']
         self.corner_right=self.current['corner_right']
         # log and plot
-        self.logger.log_data( self.desired,self.current)
+        self.logger.log_data( self.desired,self.com_ref)
         self.logger.update_plot(self.time)
         self.logger2.log_data(self.corner_left,self.corner_right,self.current)
         self.logger2.update_plot(self.time)
@@ -483,7 +485,8 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             angular_momentum_at_com=np.zeros(3)
             for body in hrp4.getBodyNodes():
                 w_R_link_i=body.getWorldTransform().rotation()
-                angular_momentum_at_com+=w_R_link_i@body.getAngularMomentum(-com_position+body.getCOM())
+                #angular_momentum_at_com+=w_R_link_i@body.getAngularMomentum(-com_position+body.getCOM())
+                angular_momentum_at_com+=w_R_link_i@body.getAngularMomentum(w_R_link_i.T@(com_position-body.getWorldTransform().translation()))
         
          
         
