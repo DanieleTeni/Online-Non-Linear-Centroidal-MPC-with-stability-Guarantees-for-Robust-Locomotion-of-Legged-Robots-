@@ -97,7 +97,7 @@ def references(foot_tra,planner,SHOW_PLOT=1):
          ref_acc_y=built_the_acceleration(knot_y,sequence_y,co_y)
          ref_acc_y = np.concatenate(ref_acc_y).tolist()
 
-         ref_pos_z = np.full(len(ref_pos_x),0.7)
+         ref_pos_z = np.full(len(ref_pos_x),0.72)
          ref_vel_z = np.zeros(len(ref_pos_x))
          ref_acc_z = np.zeros(len(ref_pos_x))
         

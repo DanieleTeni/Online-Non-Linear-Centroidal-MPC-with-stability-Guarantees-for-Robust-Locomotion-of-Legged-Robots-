@@ -521,22 +521,7 @@ class centroidal_mpc:
                                    current['rfoot']['pos'][2],
                                    current['rfoot']['pos'][3],     current['rfoot']['pos'][4],     0])
                                    
-      # UPDATE THE INITIAL STATE
-    if t<200:
-      contact_left_current = self.pos_contact_ref_l[t]
-      contact_right_current = self.pos_contact_ref_r[t] 
-    else:
-      contact_left_current = self.pos_contact_ref_l[t-70]
-      contact_right_current = self.pos_contact_ref_r[t-70]
-    
-    print(f'Contact_left_current:{contact_left_current}')
-    print(f'Contact_right_current:{contact_right_current}')
-
-    self.current_state[13:16] = contact_left_current
-    self.current_state[17:20] = contact_right_current
-
-    # contact_left_current = self.[t+1:t+1+self.N].T
-    # contact_right_current = self.pos_contact_ref_r[t+1:t+1+self.N].T  
+      # UPDATE THE INITIAL STATE   
     self.opt.set_value(self.opti_x0_param, self.current_state)
     # print(f'Current_Pos_contact_left:{self.current_state[15:18]}')
     # print(f'Current_Pos_contact_right:{self.current_state[21:24]}')
@@ -754,8 +739,8 @@ class centroidal_mpc:
     
     # print(f'Pos_contact_curr_left:{self.x_collect[13:16,0]}')
     # print(f'Pos_contact_curr_right:{self.x_collect[17:20,0]}')
-    print(f'Pos_contact_left_horizon:{self.x_collect[13:16,:]}')
-    print(f'Pos_contact_right_horizon:{self.x_collect[17:20,:]}')
+    # print(f'Pos_contact_left_horizon:{self.x_collect[13:16,:]}')
+    # print(f'Pos_contact_right_horizon:{self.x_collect[17:20,:]}')
     #print(f'Theta_hat:{self.x[9:12]}')
 
     #An: Need to add here the output of mpc for contact pos -> update them to the footstep planner list

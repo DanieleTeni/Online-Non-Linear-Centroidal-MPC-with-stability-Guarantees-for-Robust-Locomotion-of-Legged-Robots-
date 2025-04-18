@@ -589,6 +589,9 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         }
     
     def get_actual_feet_pose(self):
+        
+        
+        
         l_foot_transform = self.lsole.getTransform(withRespectTo=dart.dynamics.Frame.World(), inCoordinatesOf=dart.dynamics.Frame.World())
         l_foot_orientation = get_rotvec(l_foot_transform.rotation())
         l_foot_position = l_foot_transform.translation()

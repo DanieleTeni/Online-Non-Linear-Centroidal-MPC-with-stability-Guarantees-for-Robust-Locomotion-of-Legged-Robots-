@@ -200,7 +200,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
 
 
              # initialize footstep planner
-        reference = [(0.1, 0., 0)] * 5 + [(0.1, 0., -0.0)] * 10 + [(0.1, 0., 0.)] * 30
+        reference = [(0.15, 0., 0)] * 5 + [(0.15, 0., -0.0)] * 10 + [(0.15, 0., 0.)] * 10
         if self.preferences[0]=='full_model' :
          self.footstep_planner = footstep_planner_vertices.FootstepPlanner(
             reference,
@@ -241,7 +241,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         first_knot=np.zeros(2)
         first_knot[0]=self.initial['com']['pos'][0]
         first_knot[1]=self.initial['com']['pos'][1]
-        self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner,first_knot)  
+        self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner,first_knot,0)  
         print("ref_length:")
         #print(len(self.ref['pos_x']))
         #self.ref=new.references(self.foot_trajectory_generator,self.footstep_planner,1)  FOR SEE GRAHP

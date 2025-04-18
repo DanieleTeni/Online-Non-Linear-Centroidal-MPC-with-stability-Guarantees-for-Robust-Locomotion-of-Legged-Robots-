@@ -7,7 +7,7 @@ class centroidal_mpc:
   def __init__(self, initial, footstep_planner, params, CoM_ref, contact_trj_l, contact_trj_r):
     # parameters
     self.params = params
-    self.N = params['N']-95
+    self.N = params['N']
     self.delta = params['world_time_step']
     self.h = params['h']
     self.eta = params['eta']
@@ -23,9 +23,17 @@ class centroidal_mpc:
     self.debug = 0
     self.update_contact_flag = 0
     #Change of coordinates Gains
-    self.k1=6# 8 for foot step 0.15 
-    self.k2=1
+    self.k1=4# 8 for foot step 0.15 
+    self.k2=0.1
     
+    self.update_time=61
+    self.correction=1
+    #(t+self.N-self.correction)
+    self.update_swing_trj=0
+    # default_ss_duration = params['ss_duration']
+    # self.times_in_which_we_use_the_modified_swing_foot_trj= default_ss_duration - self.update_time
+    # print(f'self.times_in_which_we_use_the_modified_swing_foot_trj:{self.times_in_which_we_use_the_modified_swing_foot_trj}')
+    self.next_des_pose_swing_MPC_at_69=np.zeros(3)
     #To build the Non-slippage constraints
     mu= 0.5
     #d= params['foot_size']/2
@@ -213,7 +221,7 @@ class centroidal_mpc:
 
     for i in range(self.N):
       self.u_n_mat[:,i]=-(self.k1+self.k2)*self.z2_mat[:,i]+\
-                        self.k1*self.k1*self.z1_mat[:,i]-gravity+self.opti_com_ref[6:9,i]*0-self.opti_thetahat[:,i]/self.mass
+                        self.k1*self.k1*self.z1_mat[:,i]-gravity+self.opti_com_ref[6:9,i]*1-self.opti_thetahat[:,i]/self.mass
 
     #Total linear force evaluated by the MPCs
     self.Vl_mat = cs.MX.zeros(3,self.N)
@@ -223,12 +231,12 @@ class centroidal_mpc:
       self.Vr_mat[:,i]=(self.opti_v1r_force[:,i]+self.opti_v2r_force[:,i]+self.opti_v3r_force[:,i]+self.opti_v4r_force[:,i])*self.opti_contact_right[i]/self.mass
 
     #An: Lyapunov stability constrains
-    for i in range(1):  
+    for i in range(1*self.N):  
       self.opt.subject_to(-self.z1_mat[:,i].T@(self.k1*self.z1_mat[:,i])-self.z2_mat[:,i].T@(self.k2*self.z2_mat[:,i])+\
                           self.z1_mat[:,i].T@self.z2_mat[:,i]+self.z2_mat[:,i].T@((self.Vl_mat[:,i]+self.Vr_mat[:,i])-self.u_n_mat[:,i])<=0.0)
 
     #An: angular momentum constraint:
-    for i in range(self.N-(self.N+1)*1):
+    for i in range(1):
       self.opt.subject_to(self.opti_hw[:,i].T@self.opti_hw[:,i]>=self.opti_hw[:,i+1].T@self.opti_hw[:,i+1])
     #self.opt.subject_to(self.opti_hw[:,i].T@self.opti_hw[:,i]<=100)
     # for i in range(self.N):
@@ -282,11 +290,20 @@ class centroidal_mpc:
 
       #constarin on the maximum deviation of the foot pose from the desired position
       #ROTATION MAT MISSING 
-    #for i in range(self.N):
-    #  self.opt.subject_to(self.opti_pos_contact_l[:,i]-self.opti_pos_contact_l_ref[:,i]<=0.05 )
-    #  self.opt.subject_to(self.opti_pos_contact_l[:,i]-self.opti_pos_contact_l_ref[:,i]>=-0.05 )
-    #  self.opt.subject_to(self.opti_ang_contact_r[:,i]-self.opti_ang_contact_r_ref[:,i]<=0.005 )
-    #  self.opt.subject_to(self.opti_ang_contact_r[:,i]-self.opti_ang_contact_r_ref[:,i]>=-0.005 )
+    for i in range(self.N):
+     self.opt.subject_to((self.opti_pos_contact_l[0,i]-self.opti_pos_contact_l_ref[0,i])*self.opti_contact_left[i]<=0.02 )
+     self.opt.subject_to((self.opti_pos_contact_l[0,i]-self.opti_pos_contact_l_ref[0,i])*self.opti_contact_left[i]>=-0.02 )
+     self.opt.subject_to((self.opti_pos_contact_l[1,i]-self.opti_pos_contact_l_ref[1,i])*self.opti_contact_left[i]<=0.01 )
+     self.opt.subject_to((self.opti_pos_contact_l[1,i]-self.opti_pos_contact_l_ref[1,i])*self.opti_contact_left[i]>=-0.01 )
+     self.opt.subject_to((self.opti_pos_contact_l[2,i]-self.opti_pos_contact_l_ref[2,i])*self.opti_contact_left[i]<=0.005 )
+     self.opt.subject_to((self.opti_pos_contact_l[2,i]-self.opti_pos_contact_l_ref[2,i])*self.opti_contact_left[i]>=-0.005 )
+
+     self.opt.subject_to((self.opti_pos_contact_r[0,i]-self.opti_pos_contact_r_ref[0,i])*self.opti_contact_right[i]<=0.02 )
+     self.opt.subject_to((self.opti_pos_contact_r[0,i]-self.opti_pos_contact_r_ref[0,i])*self.opti_contact_right[i]>=-0.02 )
+     self.opt.subject_to((self.opti_pos_contact_r[1,i]-self.opti_pos_contact_r_ref[1,i])*self.opti_contact_right[i]<=0.01 )
+     self.opt.subject_to((self.opti_pos_contact_r[1,i]-self.opti_pos_contact_r_ref[1,i])*self.opti_contact_right[i]>=-0.01 )
+     self.opt.subject_to((self.opti_pos_contact_r[2,i]-self.opti_pos_contact_r_ref[2,i])*self.opti_contact_right[i]<=0.005 )
+     self.opt.subject_to((self.opti_pos_contact_r[2,i]-self.opti_pos_contact_r_ref[2,i])*self.opti_contact_right[i]>=-0.005 )
 
     #for i in range(self.N):
     #  self.opt.subject_to(self.opti_v1l_force[:,i]*self.opti_contact_left[i] >= -self.u_n_partial_mat[:,i])
@@ -357,14 +374,14 @@ class centroidal_mpc:
     cost = 0  # Inizializza il costo totale
 
     for i in range(self.N):
-        cost += 1000*cs.sumsqr(self.opti_hw[:,i+1]) + \
+        cost += 1000*cs.sumsqr(self.opti_hw[:,i]) + \
               1*cs.sumsqr(self.opti_CoM[0,i+1]-self.opti_com_ref[0,i]) + \
               1*cs.sumsqr(self.opti_CoM[1,i+1]-self.opti_com_ref[1,i]) + \
-              4000*cs.sumsqr(self.opti_CoM[2,i+1]-self.opti_com_ref[2,i]) + \
-              1000*cs.sumsqr((self.opti_pos_contact_l[:,i]-self.opti_pos_contact_l_ref[:,i])) + \
-              1000*cs.sumsqr((self.opti_pos_contact_r[:,i]-self.opti_pos_contact_r_ref[:,i])) + \
-              1000000*cs.sumsqr((self.opti_ang_contact_l[i]-self.opti_ang_contact_l_ref[i])*self.opti_contact_left[i]) + \
-              1000000*cs.sumsqr((self.opti_ang_contact_r[i]-self.opti_ang_contact_r_ref[i])*self.opti_contact_right[i]) + \
+              10000*cs.sumsqr(self.opti_CoM[2,i+1]-self.opti_com_ref[2,i]) + \
+              1000*cs.sumsqr((self.opti_pos_contact_l[:,i]-self.opti_pos_contact_l_ref[:,i])*self.opti_contact_left[i]) + \
+              1000*cs.sumsqr((self.opti_pos_contact_r[:,i]-self.opti_pos_contact_r_ref[:,i])*self.opti_contact_right[i]) + \
+              100*cs.sumsqr((self.opti_ang_contact_l[i]-self.opti_ang_contact_l_ref[i])*self.opti_contact_left[i]) + \
+              100*cs.sumsqr((self.opti_ang_contact_r[i]-self.opti_ang_contact_r_ref[i])*self.opti_contact_right[i]) + \
               10*cs.sumsqr(self.aux_forces_average_l_mat[:,i]-self.opti_v1l_force[:,i])*self.opti_contact_left[i] + \
               10*cs.sumsqr(self.aux_forces_average_l_mat[:,i]-self.opti_v2l_force[:,i])*self.opti_contact_left[i] + \
               10*cs.sumsqr(self.aux_forces_average_l_mat[:,i]-self.opti_v3l_force[:,i])*self.opti_contact_left[i] + \
@@ -386,7 +403,9 @@ class centroidal_mpc:
           'ang_contact_left' : {'val': np.zeros(3)},
           'pos_contact_left' : {'val': np.zeros(3)},
           'ang_contact_right': {'val': np.zeros(3)},
-          'pos_contact_right': {'val': np.zeros(3)}}
+          'pos_contact_right': {'val': np.zeros(3)},
+          'mpc_new_contact' :{'val':np.zeros(3)},
+          'counter':{'val':0} ,}
 
 
 
@@ -483,8 +502,8 @@ class centroidal_mpc:
 
     # Centroidal dynamic with disturbance estimator theta hat, contact dynamics
     dcom=com_vel 
-    ddcom= gravity+(1/mass)*(Vl+Vr+theta_hat)
-    dhw= -(torque_l)-(torque_r)
+    ddcom= gravity+(1/mass)*(Vl+Vr+theta_hat*0)
+    dhw= (torque_l)+(torque_r)
     v_left= (1-contact_left)*vel_left
     v_right= (1-contact_right)*vel_right
     omega_l=(1-contact_left)*omega_left
@@ -521,7 +540,20 @@ class centroidal_mpc:
                                    current['rfoot']['pos'][2],
                                    current['rfoot']['pos'][3],     current['rfoot']['pos'][4],     0])
                                    
-      # UPDATE THE INITIAL STATE   
+      # UPDATE THE INITIAL STATE
+    if t<200:
+      contact_left_current = self.pos_contact_ref_l[t]
+      contact_right_current = self.pos_contact_ref_r[t] 
+    else:
+      contact_left_current = self.pos_contact_ref_l[t-70]
+      contact_right_current = self.pos_contact_ref_r[t-70]
+    
+    print(f'Contact_left_current:{contact_left_current}')
+    print(f'Contact_right_current:{contact_right_current}')
+
+    self.current_state[13:16] = contact_left_current
+    self.current_state[17:20] = contact_right_current
+
     self.opt.set_value(self.opti_x0_param, self.current_state)
     # print(f'Current_Pos_contact_left:{self.current_state[15:18]}')
     # print(f'Current_Pos_contact_right:{self.current_state[21:24]}')
@@ -722,7 +754,7 @@ class centroidal_mpc:
     Vl_mat=self.u[0:3]+self.u[3:6]+self.u[6:9]+self.u[9:12]
     Vr_mat=self.u[12:15]+self.u[15:18]+self.u[18:21]+self.u[21:24]
     theta_hat = self.x[9:12]
-    CoM_acc=(1/self.mass)*(contact_status_l[0]*Vl_mat+contact_status_r[0]*Vr_mat+theta_hat).T+np.array([0, 0,- self.g])
+    CoM_acc=(1/self.mass)*(contact_status_l[0]*Vl_mat+contact_status_r[0]*Vr_mat+theta_hat*0).T+np.array([0, 0,- self.g])
 
     #update the return structure
     self.model_state['com']['pos'] = np.array([self.x[0], self.x[1], self.x[2]])
@@ -735,34 +767,41 @@ class centroidal_mpc:
     self.model_state['pos_contact_left']['val'] = np.array([self.x[13], self.x[14], self.x[15]])
     self.model_state['ang_contact_right']['val'] = self.x[16]
     self.model_state['pos_contact_right']['val'] = np.array([self.x[17], self.x[18], self.x[19]])
+    self.model_state['counter']['val']=0
 
     
     # print(f'Pos_contact_curr_left:{self.x_collect[13:16,0]}')
     # print(f'Pos_contact_curr_right:{self.x_collect[17:20,0]}')
     print(f'Pos_contact_left_horizon:{self.x_collect[13:16,:]}')
     print(f'Pos_contact_right_horizon:{self.x_collect[17:20,:]}')
-    #print(f'Theta_hat:{self.x[9:12]}')
+    print(f'Theta_hat:{self.x[9:12]}')
 
     #An: Need to add here the output of mpc for contact pos -> update them to the footstep planner list
     if self.params['update_contact']=='YES' :
       contact_phase_current= self.footstep_planner.get_phase_at_time(t)
-      contact_phase_next_after_the_horizon= self.footstep_planner.get_phase_at_time(t+self.N-1)
+      contact_phase_next_after_the_horizon= self.footstep_planner.get_phase_at_time(t+self.N-2)
       if contact_phase_current=='ss' and contact_phase_next_after_the_horizon=='ds' and self.update_contact_flag== 0:
       #Update new contact position at this specific moment
         print("Time to update contact list")
         self.update_contact_flag=1
+        self.model_state['counter']['val'] = self.update_contact_flag
         current_contact_foot = self.footstep_planner.plan[self.footstep_planner.get_step_index_at_time(t)]['foot_id']
         if current_contact_foot=='lfoot':
           self.footstep_planner.plan[self.footstep_planner.get_step_index_at_time(t)+1]['pos'] = self.x_collect[17:20,self.N]#mean the swing foot is the right one-> update the contact position of the swing foot
+          self.model_state['mpc_new_contact']['val'] = self.x_collect[17:20,self.N]
         else:
           self.footstep_planner.plan[self.footstep_planner.get_step_index_at_time(t)+1]['pos'] = self.x_collect[13:16,self.N]
-     
+          self.model_state['mpc_new_contact']['val'] = self.x_collect[13:16,self.N]
       if contact_phase_current=='ds':
         self.update_contact_flag=0 #reset the flag
 
+    # self.model_state['next_des_pose_swing_MPC_at_69']['val'] = np.array(self.next_des_pose_swing_MPC_at_69)
+    
     contact = self.footstep_planner.get_phase_at_time(t)
     if contact == 'ss':
       contact = self.footstep_planner.plan[self.footstep_planner.get_step_index_at_time(t)]['foot_id']
 
     return self.model_state, contact
   
+  def reset_update_swing_trj(self):
+    self.update_swing_trj=0
