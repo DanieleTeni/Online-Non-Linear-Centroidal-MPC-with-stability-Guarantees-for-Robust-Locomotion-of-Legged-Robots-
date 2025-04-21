@@ -13,7 +13,7 @@ import inverse_dynamics as id
 import inverse_hw as idt
 import filter
 import foot_trajectory_generator as ftg
-from logger import Logger
+from logger_theta import Logger
 from logger2 import Logger2
 from logger3 import Logger3 
 import new
