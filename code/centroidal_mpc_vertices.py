@@ -291,17 +291,17 @@ class centroidal_mpc:
       #constarin on the maximum deviation of the foot pose from the desired position
       #ROTATION MAT MISSING 
     for i in range(self.N):
-     self.opt.subject_to((self.opti_pos_contact_l[0,i]-self.opti_pos_contact_l_ref[0,i])*self.opti_contact_left[i]<=0.02 )
-     self.opt.subject_to((self.opti_pos_contact_l[0,i]-self.opti_pos_contact_l_ref[0,i])*self.opti_contact_left[i]>=-0.02 )
-     self.opt.subject_to((self.opti_pos_contact_l[1,i]-self.opti_pos_contact_l_ref[1,i])*self.opti_contact_left[i]<=0.01 )
-     self.opt.subject_to((self.opti_pos_contact_l[1,i]-self.opti_pos_contact_l_ref[1,i])*self.opti_contact_left[i]>=-0.01 )
+     self.opt.subject_to((self.opti_pos_contact_l[0,i]-self.opti_pos_contact_l_ref[0,i])*self.opti_contact_left[i]<=0.01 )
+     self.opt.subject_to((self.opti_pos_contact_l[0,i]-self.opti_pos_contact_l_ref[0,i])*self.opti_contact_left[i]>=-0.01 )
+     self.opt.subject_to((self.opti_pos_contact_l[1,i]-self.opti_pos_contact_l_ref[1,i])*self.opti_contact_left[i]<=0.005 )
+     self.opt.subject_to((self.opti_pos_contact_l[1,i]-self.opti_pos_contact_l_ref[1,i])*self.opti_contact_left[i]>=-0.005 )
      self.opt.subject_to((self.opti_pos_contact_l[2,i]-self.opti_pos_contact_l_ref[2,i])*self.opti_contact_left[i]<=0.005 )
      self.opt.subject_to((self.opti_pos_contact_l[2,i]-self.opti_pos_contact_l_ref[2,i])*self.opti_contact_left[i]>=-0.005 )
 
-     self.opt.subject_to((self.opti_pos_contact_r[0,i]-self.opti_pos_contact_r_ref[0,i])*self.opti_contact_right[i]<=0.02 )
-     self.opt.subject_to((self.opti_pos_contact_r[0,i]-self.opti_pos_contact_r_ref[0,i])*self.opti_contact_right[i]>=-0.02 )
-     self.opt.subject_to((self.opti_pos_contact_r[1,i]-self.opti_pos_contact_r_ref[1,i])*self.opti_contact_right[i]<=0.01 )
-     self.opt.subject_to((self.opti_pos_contact_r[1,i]-self.opti_pos_contact_r_ref[1,i])*self.opti_contact_right[i]>=-0.01 )
+     self.opt.subject_to((self.opti_pos_contact_r[0,i]-self.opti_pos_contact_r_ref[0,i])*self.opti_contact_right[i]<=0.01 )
+     self.opt.subject_to((self.opti_pos_contact_r[0,i]-self.opti_pos_contact_r_ref[0,i])*self.opti_contact_right[i]>=-0.01 )
+     self.opt.subject_to((self.opti_pos_contact_r[1,i]-self.opti_pos_contact_r_ref[1,i])*self.opti_contact_right[i]<=0.005 )
+     self.opt.subject_to((self.opti_pos_contact_r[1,i]-self.opti_pos_contact_r_ref[1,i])*self.opti_contact_right[i]>=-0.005 )
      self.opt.subject_to((self.opti_pos_contact_r[2,i]-self.opti_pos_contact_r_ref[2,i])*self.opti_contact_right[i]<=0.005 )
      self.opt.subject_to((self.opti_pos_contact_r[2,i]-self.opti_pos_contact_r_ref[2,i])*self.opti_contact_right[i]>=-0.005 )
 
@@ -508,7 +508,7 @@ class centroidal_mpc:
     v_right= (1-contact_right)*vel_right
     omega_l=(1-contact_left)*omega_left
     omega_r=(1-contact_right)*omega_right
-    dthetahat= z2/self.mass
+    dthetahat= z2/1/self.mass
 
     return cs.vertcat(dcom,ddcom,dhw,dthetahat,omega_l,v_left,omega_r,v_right)
 

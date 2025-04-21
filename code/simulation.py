@@ -18,7 +18,7 @@ from logger3 import Logger3
 import new
 
 
-debug_folder= "Debug"
+debug_folder= "code/Debug"
 class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
     def __init__(self, world, hrp4):
         super(Hrp4Controller, self).__init__(world)
@@ -35,7 +35,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             'ds_duration': 3*10,
             'first_swing': 'rfoot',
             'µ': 0.5,
-            'N': 5,
+            'N': 20,
             'dof': self.hrp4.getNumDofs(),
             'mass': self.hrp4.getMass(), #An: Add the mass of the robot as a default param
             'update_contact': 'YES'
@@ -266,7 +266,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
     def customPreStep(self):
         # create current and desired states
         if  self.time >800 and self.time < 900:
-            force = np.array([.0, 0.0, -0.0])  # 2.8 Newtons max , N=20
+            force = np.array([.0, 2.2, -0.0])  #1.6 works. 2.2 Newtons max , N=20
             self.base.addExtForce(force)
             self.torso.addExtForce(force)
         
