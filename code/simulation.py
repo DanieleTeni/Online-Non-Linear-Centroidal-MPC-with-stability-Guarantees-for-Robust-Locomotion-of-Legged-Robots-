@@ -15,6 +15,7 @@ import foot_trajectory_generator as ftg
 from logger import Logger
 from logger2_Lore import Logger2
 from logger3 import Logger3 
+from logger_theta import Logger_theta
 import new
 
 
@@ -256,6 +257,8 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.logger2.initialize_plot(frequency=10)
         self.logger3 = Logger3(self.initial)
         self.logger3.initialize_plot(frequency=10)
+        self.logger_theta = Logger_theta(self.initial)
+        self.logger_theta.initialize_plot(frequency=10)
 
         feet_trajectories = self.foot_trajectory_generator.generate_feet_trajectories_at_time(self.time)
         for foot in ['lfoot', 'rfoot']:
@@ -316,6 +319,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         self.desired['com']['vel'] = robot_state['com']['vel']
         self.desired['com']['acc'] = robot_state['com']['acc']
         self.desired['hw']['val'] = robot_state['hw']['val']
+        self.desired['theta_hat']['val']=robot_state['theta_hat']['val']
 
 
         # next_des_pose_swing_MPC_at_update_time = robot_state['next_des_pose_swing_MPC_at_update_time']['val']
@@ -441,6 +445,8 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         # log and plot
         self.logger.log_data( self.desired,self.com_ref)
         self.logger.update_plot(self.time)
+        self.logger_theta.log_data(self.desired)
+        self.logger_theta.update_plot(self.time)
         self.logger2.log_data(self.current, self.mpc_desired_feet,self.actual_feet_pose)
         self.logger2.update_plot(self.time)
         self.logger3.log_data(self.desired,self.current)

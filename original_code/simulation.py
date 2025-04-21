@@ -8,7 +8,7 @@ import footstep_planner
 import inverse_dynamics as id
 import filter
 import foot_trajectory_generator as ftg
-from logger import Logger
+from code.logger_theta import Logger
 
 class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
     def __init__(self, world, hrp4):
