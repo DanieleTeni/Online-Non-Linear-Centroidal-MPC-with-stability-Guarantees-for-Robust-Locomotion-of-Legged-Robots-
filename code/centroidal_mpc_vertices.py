@@ -24,11 +24,11 @@ class centroidal_mpc:
     self.update_contact_flag = 0
     #Change of coordinates Gains
     
-    self.k1=4# 4-0.1 rate 1// 5-0.1 rate 10 , inverse leg
+    self.k1=4# 4-0.1 rate 1// 5-0.1 rate 10
     self.k2=0.1
     if params['mpc_rate'] == 10:
       self.k1=5
-      self.k2=0.1
+      self.k2=0.2
 
     self.mpc_rate = params['mpc_rate']
     self.correction=1

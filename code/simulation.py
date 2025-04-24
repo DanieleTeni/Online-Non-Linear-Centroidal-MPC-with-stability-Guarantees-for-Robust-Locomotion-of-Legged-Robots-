@@ -272,7 +272,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
     def customPreStep(self):
         # create current and desired states
         if  self.time >800 and self.time < 900:
-            force = np.array([.0, 1.8, 0.0])  #1.6 works in 800-900 2.2 Newtons max , N=20
+            force = np.array([.0, 3.0, 0.0])  #1.6 works in 800-900 2.2 Newtons max , N=20
             self.base.addExtForce(force)
             self.torso.addExtForce(force)
         
@@ -396,7 +396,16 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
 
             new_contact_feet_pose = self.foot_trajectory_generator.generate_feet_trajectories_at_time(self.time+self.params['N']*self.params['mpc_rate'])
             self.logger2.draw_desired_swing_foot_position(new_contact_feet_pose[swing_foot]['pos'])
-            
+        # To draw the real contact position
+        if self.time > 2*(self.params['ds_duration']+self.params['ss_duration'])-self.params['ds_duration']:
+            if self.footstep_planner.get_phase_at_time(self.time) == 'ds' and self.footstep_planner.get_phase_at_time(self.time + self.params['ds_duration']-1) == 'ds':
+                contact_pre_ds = self.footstep_planner.plan[self.footstep_planner.get_step_index_at_time(self.time-1)]['foot_id']
+                print(f'Contact phase: {contact_pre_ds}')
+                if contact_pre_ds == 'lfoot':
+                    self.logger2.draw_current_feet(self.current['rfoot'])
+                if contact_pre_ds == 'rfoot':
+                    self.logger2.draw_current_feet(self.current['lfoot'])
+         
         # set torso and base references to the average of the feet
         for link in ['torso', 'base']:
             for key in ['pos', 'vel', 'acc']:

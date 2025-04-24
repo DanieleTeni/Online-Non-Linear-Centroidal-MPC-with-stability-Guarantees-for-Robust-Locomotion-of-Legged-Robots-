@@ -53,11 +53,11 @@ class Logger2():
             label='Planned footstep trajectories'
         )
         dummy_real_pos_fix = patches.Patch(
-            facecolor='red', edgecolor='black', alpha=0.3,
+            facecolor='purple', edgecolor='black', alpha=0.3,
             label='real feet pose'
         )
         dummy_MPC_pos = patches.Patch(
-            facecolor='lightblue', edgecolor='blue', alpha=0.5,
+            facecolor='red', edgecolor='blue', alpha=0.5,
             label='Desired feet pose by MPC'
         )
         dummy_real_pos = patches.Patch(
@@ -166,7 +166,7 @@ class Logger2():
             self.ax.add_patch(rect)
 
 
-    def draw_current_feet(self):
+    def draw_current_feet(self,actual_feet_pose):
         """
         Draws the real-time foot positions as red transparent rectangles.
         (rimuove i rettangoli precedenti e li ridisegna)
@@ -180,19 +180,19 @@ class Logger2():
         self.current_foot_rects = []
 
         # Disegniamo i piedi lfoot e rfoot
-        for foot in ['lfoot', 'rfoot']:
-            pos = self.actual_feet_pose[foot]['pos']
-            ang = self.actual_feet_pose[foot]['ang']
+        #for foot in ['lfoot', 'rfoot']:
+        pos = actual_feet_pose['pos'][3:6]
+        ang = actual_feet_pose['pos'][0:3]
 
-            angle_deg = np.degrees(ang)
+        angle_deg = np.degrees(ang)
 
-            foot_length = 0.25
-            foot_width = 0.13
+        foot_length = 0.25
+        foot_width = 0.13
 
-            lower_left_x = pos[0] - foot_length / 2
-            lower_left_y = pos[1] - foot_width / 2
+        lower_left_x = pos[0] - foot_length / 2
+        lower_left_y = pos[1] - foot_width / 2
 
-            actual_rect = patches.Rectangle(
+        actual_rect = patches.Rectangle(
                 (lower_left_x, lower_left_y),
                 foot_length,
                 foot_width,
@@ -202,8 +202,8 @@ class Logger2():
                 linewidth=1,
                 edgecolor='black'
             )
-            self.ax.add_patch(actual_rect)
-            self.current_foot_rects.append(actual_rect)
+        self.ax.add_patch(actual_rect)
+        #self.current_foot_rects.append(actual_rect)
 
 
 
@@ -239,7 +239,7 @@ class Logger2():
                 foot_length,
                 foot_width,
                 angle=angle_deg[2],
-                color='blue',
+                color='lightblue',
                 alpha=0.5,
                 linewidth=1,
                 edgecolor='blue'

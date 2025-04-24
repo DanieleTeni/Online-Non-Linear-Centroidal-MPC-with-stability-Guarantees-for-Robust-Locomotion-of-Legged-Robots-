@@ -40,7 +40,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             'dof': self.hrp4.getNumDofs(),
             'mass': self.hrp4.getMass(), #An: Add the mass of the robot as a default param
             'update_contact': 'YES',
-            'mpc_rate': 1  # An: rate at which the MPC is updated ( 10 means after every 5 time steps)
+            'mpc_rate': 10  # An: rate at which the MPC is updated ( 10 means after every 10 time steps)
         }
         self.counter=0
         self.mpc_robot_state = np.zeros(34)
@@ -392,6 +392,16 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
 
             new_contact_feet_pose = self.foot_trajectory_generator.generate_feet_trajectories_at_time(self.time+self.params['N']*self.params['mpc_rate'])
             self.logger2.draw_desired_swing_foot_position(new_contact_feet_pose[swing_foot]['pos'])
+        
+         # To draw the real contact position
+        if self.time > 2*(self.params['ds_duration']+self.params['ss_duration'])-self.params['ds_duration']:
+            if self.footstep_planner.get_phase_at_time(self.time) == 'ds' and self.footstep_planner.get_phase_at_time(self.time + self.params['ds_duration']-1) == 'ds':
+                contact_pre_ds = self.footstep_planner.plan[self.footstep_planner.get_step_index_at_time(self.time-1)]['foot_id']
+                print(f'Contact phase: {contact_pre_ds}')
+                if contact_pre_ds == 'lfoot':
+                    self.logger2.draw_current_feet(self.current['rfoot'])
+                if contact_pre_ds == 'rfoot':
+                    self.logger2.draw_current_feet(self.current['lfoot'])
             
         # set torso and base references to the average of the feet
         for link in ['torso', 'base']:
