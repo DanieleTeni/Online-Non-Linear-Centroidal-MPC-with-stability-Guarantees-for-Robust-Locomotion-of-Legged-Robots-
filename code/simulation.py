@@ -36,12 +36,15 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             'ds_duration': 3*10,
             'first_swing': 'rfoot',
             'µ': 0.5,
-            'N': 20,
+            'N': 10,
             'dof': self.hrp4.getNumDofs(),
             'mass': self.hrp4.getMass(), #An: Add the mass of the robot as a default param
-            'update_contact': 'YES'
+            'update_contact': 'YES',
+            'mpc_rate': 1  # An: rate at which the MPC is updated ( 5 means after every 5 time steps)
         }
         self.counter=0
+        self.mpc_robot_state = np.zeros(34)
+        self.mpc_contact = np.zeros(6)
         model='full_model'   ##    model could be 'full model', 'original' or 'simple'
                                   ## if use 'full model' then use centroidal_mpc_vertices 
                                   ## if use 'full model' then use centroidal_mpc
@@ -269,7 +272,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
     def customPreStep(self):
         # create current and desired states
         if  self.time >800 and self.time < 900:
-            force = np.array([.0, 2.2, -0.0])  #1.6 works. 2.2 Newtons max , N=20
+            force = np.array([.0, 1.8, 0.0])  #1.6 works in 800-900 2.2 Newtons max , N=20
             self.base.addExtForce(force)
             self.torso.addExtForce(force)
         
@@ -312,9 +315,12 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
 
         # get references using mpc SOLVE THE MPC
         #lip_state, contact = self.mpc.solve(self.current, self.time)
-        robot_state, contact= self.centroidal_mpc.solve(self.current, self.time)
+        if self.time % self.params['mpc_rate'] == 0:
+            self.mpc_robot_state, self.mpc_contact= self.centroidal_mpc.solve(self.current, self.time)
         #lip_state, contact = self.centroidal_mpc.solve(self.current, self.time)
         
+        robot_state = self.mpc_robot_state
+        contact = self.mpc_contact
         self.desired['com']['pos'] = robot_state['com']['pos']
         self.desired['com']['vel'] = robot_state['com']['vel']
         self.desired['com']['acc'] = robot_state['com']['acc']
@@ -379,6 +385,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         
 
         if self.counter==1:
+            self.mpc_robot_state['counter']['val'] = 0
             self.centroidal_mpc.reset_update_swing_trj()
             self.update_swing_trj=0
             self.sim_update_swing_trj=0
@@ -387,14 +394,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             else:
                 swing_foot = 'lfoot'
 
-            new_contact_feet_pose = self.foot_trajectory_generator.generate_feet_trajectories_at_time(self.time+self.params['N'])
-
-            for foot in ['lfoot', 'rfoot']:
-                for key in ['pos', 'vel', 'acc']:
-            #for key in ['vel', 'acc']:
-                    self.desired[foot][key] = feet_trajectories[foot][key]
-            print(f'Pos_contact_desired {foot}')
-            print(self.desired[foot]['pos'][3:6])
+            new_contact_feet_pose = self.foot_trajectory_generator.generate_feet_trajectories_at_time(self.time+self.params['N']*self.params['mpc_rate'])
             self.logger2.draw_desired_swing_foot_position(new_contact_feet_pose[swing_foot]['pos'])
             
         # set torso and base references to the average of the feet
