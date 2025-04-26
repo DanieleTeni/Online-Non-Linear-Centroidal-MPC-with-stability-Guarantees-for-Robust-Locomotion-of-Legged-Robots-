@@ -40,7 +40,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             'dof': self.hrp4.getNumDofs(),
             'mass': self.hrp4.getMass(), #An: Add the mass of the robot as a default param
             'update_contact': 'YES',
-            'mpc_rate': 1  # An: rate at which the MPC is updated ( 5 means after every 5 time steps)
+            'mpc_rate': 1 # An: rate at which the MPC is updated ( 10 means after every 10 time steps)
         }
         self.counter=0
         self.mpc_robot_state = np.zeros(34)
@@ -272,7 +272,7 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
     def customPreStep(self):
         # create current and desired states
         if  self.time >800 and self.time < 900:
-            force = np.array([.0, 3.0, 0.0])  #1.6 works in 800-900 2.2 Newtons max , N=20
+            force = np.array([.0, 0.0, 0.0])  #1.6 works in 800-900 2.2 Newtons max , N=20
             self.base.addExtForce(force)
             self.torso.addExtForce(force)
         

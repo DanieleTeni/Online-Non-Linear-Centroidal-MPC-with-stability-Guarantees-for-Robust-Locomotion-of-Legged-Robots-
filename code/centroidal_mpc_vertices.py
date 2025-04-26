@@ -28,7 +28,7 @@ class centroidal_mpc:
     self.k2=0.1
     if params['mpc_rate'] == 10:
       self.k1=5
-      self.k2=0.2
+      self.k2=5
 
     self.mpc_rate = params['mpc_rate']
     self.correction=1

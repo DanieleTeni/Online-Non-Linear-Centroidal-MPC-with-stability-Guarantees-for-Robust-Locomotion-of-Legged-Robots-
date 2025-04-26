@@ -1,5 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
+import matplotlib.patches as patches
 
 class Logger():
     def __init__(self, initial):
@@ -19,23 +20,28 @@ class Logger():
     def initialize_plot(self, frequency=1):
         self.frequency = frequency
         self.plot_info = [
-            {'axis': 0, 'batch': 'desired', 'item': 'com', 'level': 'pos', 'dim': 0, 'color': 'blue' , 'style': '-', 'label': 'desired x component' },
-            {'axis': 0, 'batch': 'current', 'item': 'com', 'level': 'pos', 'dim': 0, 'color': 'red' , 'style': '--'},
-            {'axis': 1, 'batch': 'desired', 'item': 'com', 'level': 'pos', 'dim': 1, 'color': 'blue' , 'style': '-' },
-            {'axis': 1, 'batch': 'current', 'item': 'com', 'level': 'pos', 'dim': 1, 'color': 'red' , 'style': '--'},
-            {'axis': 2, 'batch': 'desired', 'item': 'com', 'level': 'pos', 'dim': 2, 'color': 'blue' , 'style': '-' },
-            {'axis': 2, 'batch': 'current', 'item': 'com', 'level': 'pos', 'dim': 2, 'color': 'red' , 'style': '--'},
+            {'axis': 0, 'batch': 'desired', 'item': 'com', 'level': 'pos', 'dim': 0, 'color': 'blue' , 'style': '-', 'label': 'MPC CoM_x' },
+            {'axis': 0, 'batch': 'current', 'item': 'com', 'level': 'pos', 'dim': 0, 'color': 'red' , 'style': '--', 'label': 'Nominal CoM_x'},
+            {'axis': 1, 'batch': 'desired', 'item': 'com', 'level': 'pos', 'dim': 1, 'color': 'blue' , 'style': '-', 'label': 'MPC CoM_y' },
+            {'axis': 1, 'batch': 'current', 'item': 'com', 'level': 'pos', 'dim': 1, 'color': 'red' , 'style': '--', 'label': 'Nominal CoM_y'},
+            {'axis': 2, 'batch': 'desired', 'item': 'com', 'level': 'pos', 'dim': 2, 'color': 'blue' , 'style': '-', 'label': 'MPC CoM_z' },
+            {'axis': 2, 'batch': 'current', 'item': 'com', 'level': 'pos', 'dim': 2, 'color': 'red' , 'style': '--', 'label': 'Nominal CoM_z'},
         ]
 
         plot_num = np.max([item['axis'] for item in self.plot_info]) + 1
         self.fig, self.ax = plt.subplots(plot_num, 1, figsize=(6, 8))
 
-        self.fig.suptitle("Center of mass (desired vs current)", fontsize=14)
+        self.fig.suptitle("CoM nominal (dash) vs CoM MPC", fontsize=14)
+        self.ax[0].set_ylabel('[m]')
+        self.ax[1].set_ylabel('[m]')
+        self.ax[2].set_ylabel('[m]')
+        self.ax[2].set_xlabel('time step')
 
+        
         self.lines = {}
         for item in self.plot_info:
             key = item['batch'], item['item'], item['level'], item['dim']
-            self.lines[key], = self.ax[item['axis']].plot([], [], color=item['color'], linestyle=item['style'])
+            self.lines[key], = self.ax[item['axis']].plot([], [], color=item['color'], linestyle=item['style'], label=item['label'])
         for ax in self.ax:
          ax.legend()
         

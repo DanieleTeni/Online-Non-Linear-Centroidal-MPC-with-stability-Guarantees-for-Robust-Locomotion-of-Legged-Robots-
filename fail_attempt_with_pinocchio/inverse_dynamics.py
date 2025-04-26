@@ -40,8 +40,8 @@ class InverseDynamics:
         # weights and gains
         tasks = ['lfoot', 'rfoot', 'com', 'torso', 'base', 'joints']
         weights   = {'lfoot':  1., 'rfoot':  1., 'com':  1., 'torso': 1., 'base': 1., 'joints': 1.e-1}
-        pos_gains = {'lfoot': 10., 'rfoot': 10., 'com':  5., 'torso': 1., 'base': 1., 'joints': 10.  }
-        vel_gains = {'lfoot': 10., 'rfoot': 10., 'com': 10., 'torso': 2., 'base': 2., 'joints': 5}
+        pos_gains = {'lfoot': 10., 'rfoot': 10., 'com':  5., 'torso': 10., 'base': 10., 'joints': 10.  }
+        vel_gains = {'lfoot': 10., 'rfoot': 10., 'com': 10., 'torso': 5., 'base': 3., 'joints': 5}
 
         # jacobians
         J = {'lfoot' : self.robot.getJacobian(lsole,        inCoordinatesOf=dart.dynamics.Frame.World()),
