@@ -21,7 +21,9 @@ class FootstepPlanner:
 
         default_ss_duration = params['ss_duration']  #70
         default_ds_duration = params['ds_duration']  #30
-    
+        print(f'default_ss_duration: {default_ss_duration}')
+        print(f'default_ds_duration: {default_ds_duration}')
+
         unicycle_pos   = (initial_lfoot[3:5] + initial_rfoot[3:5]) / 2.      
         unicycle_theta = (initial_lfoot[2]   + initial_rfoot[2]  ) / 2.   #angle with respect the z-axis
         support_foot   = params['first_swing']      #rfoot
@@ -115,13 +117,13 @@ class FootstepPlanner:
         first_swing = params['first_swing']
         time_step = params['world_time_step']
         sim_time = int((len(self.plan)) / time_step)  # 2500 simulation steps
-
+        print(f'Sim time: {sim_time}')
         pose_left = []
         pose_right = []
 
         for i in range(sim_time):
             index = self.get_step_index_at_time(i)
-
+            #print(f'Contact index: {index}')
             if index < 2:
                 if first_swing == 'lfoot':
                     pos_left_i = self.plan[2 * index]['pos']

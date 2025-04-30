@@ -7,23 +7,23 @@
 
             <!-- <mass value="2.5"/>
             <inertia ixx="0.104285" ixy="0.0" ixz="0.0" iyy="0.006785" iyz="0.0" izz="0.106785"/> -->
-            <mass value="2.25"/>
-            <inertia ixx="0.093858" ixy="0.0" ixz="0.0" iyy="0.006107" iyz="0.0" izz="0.096107"/>
+            <!-- <mass value="2.25"/>
+            <inertia ixx="0.093858" ixy="0.0" ixz="0.0" iyy="0.006107" iyz="0.0" izz="0.096107"/> -->
 
 
-            <!-- <mass value="2.0"/>
-            <inertia ixx="0.083428" ixy="0.0" ixz="0.0" iyy="0.005428" iyz="0.0" izz="0.085428"/>  -->
+            <mass value="2.0"/>
+            <inertia ixx="0.083428" ixy="0.0" ixz="0.0" iyy="0.005428" iyz="0.0" izz="0.085428"/> 
             <!-- <mass value="1.9"/>
             <inertia ixx="0.079256" ixy="0.0" ixz="0.0" iyy="0.005156" iyz="0.0" izz="0.081156"/> -->
 <!--             
             <mass value="1.85"/>
             <inertia ixx="0.077171" ixy="0.0" ixz="0.0" iyy="0.005021" iyz="0.0" izz="0.079021"/> -->
 
-<!--             
-            <mass value="1.8"/>
+            
+            <!-- <mass value="1.8"/>
             <inertia ixx="0.075085" ixy="0.0" ixz="0.0" iyy="0.004885" iyz="0.0" izz="0.076885"/> -->
-<!-- 
-            <mass value="1.7"/>
+
+            <!-- <mass value="1.7"/>
             <inertia ixx="0.070914" ixy="0.0" ixz="0.0" iyy="0.004614" iyz="0.0" izz="0.072614"/> -->
             
             <!-- <mass value="1.6"/>

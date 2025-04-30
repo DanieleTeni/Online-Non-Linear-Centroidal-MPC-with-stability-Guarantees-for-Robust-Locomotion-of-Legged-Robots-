@@ -40,8 +40,8 @@ class InverseDynamics:
         # weights and gains
         tasks = ['lfoot', 'rfoot', 'com', 'torso', 'base', 'joints','hw']
         weights   = {'lfoot':  1., 'rfoot':  1., 'com':  1., 'torso': 1, 'base': 1, 'joints': 1.e-1,'hw': 10}
-        pos_gains = {'lfoot': 10., 'rfoot': 10., 'com':  5., 'torso': 1., 'base': 1., 'joints': 1,'hw': 10  }
-        vel_gains = {'lfoot': 10., 'rfoot': 10., 'com': 10., 'torso': 2., 'base': 2., 'joints': 0.1,'hw': 1.}
+        pos_gains = {'lfoot': 10., 'rfoot': 10., 'com':  5., 'torso': 1., 'base': 1., 'joints': 10,'hw': 10.  }
+        vel_gains = {'lfoot': 10., 'rfoot': 10., 'com': 10., 'torso': 2., 'base': 2., 'joints': 5,'hw': 1.}
 
         # jacobians
         J = {'lfoot' : self.robot.getJacobian(lsole,        inCoordinatesOf=dart.dynamics.Frame.World()),
@@ -91,7 +91,7 @@ class InverseDynamics:
                      'torso' : desired['torso']['vel'] - current['torso']['vel'],
                      'base'  : desired['base']['vel']  - current['base']['vel'],
                      'joints': desired['joint']['vel'] - current['joint']['vel'],
-                     'hw': desired['hw']['dot']-current['hw']['dot']}
+                     'hw': (desired['hw']['dot']-current['hw']['dot'])*1}
 
         # cost function
         H = np.zeros((self.n_vars, self.n_vars))
@@ -123,10 +123,10 @@ class InverseDynamics:
         # inequality constraints
         A_ineq = np.zeros((self.n_ineq_constraints, self.n_vars))
         b_ineq = np.zeros(self.n_ineq_constraints)
-        A = np.array([[ 1, 0, 0, 0, 0, -self.d],
-                      [-1, 0, 0, 0, 0, -self.d],
-                      [0,  1, 0, 0, 0, -self.d],
-                      [0, -1, 0, 0, 0, -self.d],
+        A = np.array([[ 1, 0, 0, 0, 0, -0.125],
+                      [-1, 0, 0, 0, 0, -0.125],
+                      [0,  1, 0, 0, 0, -0.065],
+                      [0, -1, 0, 0, 0, -0.065],
                       [0, 0, 0,  1, 0, -self.µ],
                       [0, 0, 0, -1, 0, -self.µ],
                       [0, 0, 0, 0,  1, -self.µ],

@@ -12,7 +12,7 @@ import footstep_planner_vertices
 import inverse_dynamics as id
 import filter
 import foot_trajectory_generator as ftg
-from code.logger_theta import Logger
+from logger import Logger
 from logger2 import Logger2
 from logger3 import Logger3 
 import new

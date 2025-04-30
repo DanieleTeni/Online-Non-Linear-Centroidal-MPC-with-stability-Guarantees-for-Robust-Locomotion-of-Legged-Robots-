@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-class Logger3():
+class Logger_theta():
     def __init__(self, initial):
         self.log = {}
         for item in initial.keys():
@@ -10,31 +10,34 @@ class Logger3():
                 self.log['current', item, level] = []
 
 
-    def log_data(self, desired, current):
+    def log_data(self, desired):
         for item in desired.keys():
             for level in desired[item].keys():
                 self.log['desired', item, level].append(desired[item][level])
-                self.log['current', item, level].append(current[item][level])
+
 
     def initialize_plot(self, frequency=1):
         self.frequency = frequency
         self.plot_info = [
-            {'axis': 0, 'batch': 'desired', 'item': 'hw', 'level': 'val', 'dim': 0, 'color': 'green', 'style': '-' },
-            {'axis': 0, 'batch': 'current', 'item': 'hw', 'level': 'val', 'dim': 0, 'color': 'red', 'style': '--'},
-            {'axis': 1, 'batch': 'desired', 'item': 'hw', 'level': 'val', 'dim': 1, 'color': 'green', 'style': '-' },
-            {'axis': 1, 'batch': 'current', 'item': 'hw', 'level': 'val', 'dim': 1, 'color': 'red', 'style': '--'},
-            {'axis': 2, 'batch': 'desired', 'item': 'hw', 'level': 'val', 'dim': 2, 'color': 'green', 'style': '-' },
-            {'axis': 2, 'batch': 'current', 'item': 'hw', 'level': 'val', 'dim': 2, 'color': 'red', 'style': '--'},
+            {'axis': 0, 'batch': 'desired', 'item': 'theta_hat', 'level': 'val', 'dim': 0, 'color': 'black' , 'style': '-', 'label': 'desired x component' },
+           
+            {'axis': 1, 'batch': 'desired', 'item': 'theta_hat', 'level': 'val', 'dim': 1, 'color': 'black' , 'style': '-' },
+        
+            {'axis': 2, 'batch': 'desired', 'item': 'theta_hat', 'level': 'val', 'dim': 2, 'color': 'black' , 'style': '-' },
+         
         ]
 
         plot_num = np.max([item['axis'] for item in self.plot_info]) + 1
         self.fig, self.ax = plt.subplots(plot_num, 1, figsize=(6, 8))
-        self.fig.suptitle("angular momentum (desired vs current)", fontsize=14)
+
+        self.fig.suptitle("Estimate Theta_hat", fontsize=14)
 
         self.lines = {}
         for item in self.plot_info:
             key = item['batch'], item['item'], item['level'], item['dim']
             self.lines[key], = self.ax[item['axis']].plot([], [], color=item['color'], linestyle=item['style'])
+        for ax in self.ax:
+         ax.legend()
         
         plt.ion()
         plt.show()
