@@ -8,7 +8,9 @@ import footstep_planner
 import inverse_dynamics as id
 import filter
 import foot_trajectory_generator as ftg
-from code.logger_theta import Logger
+from logger import Logger
+from logger3 import Logger3
+
 
 class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
     def __init__(self, world, hrp4):
@@ -75,9 +77,8 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         
         # initialize inverse dynamics
         self.id = id.InverseDynamics(self.hrp4, redundant_dofs)
-
-        # initialize footstep planner
-        reference = [(0.1, 0., 0.2)] * 5 + [(0.1, 0., -0.1)] * 10 + [(0.1, 0., 0.)] * 10
+      # initialize footstep planner
+        reference = [(0.15, 0., 0)] * 5 + [(0.15, 0.0, 0)] * 3 +[(0.15, 0.0, 0)] * 3 + [(0.13, 0, 0)] * 4 + [(0.1, 0., 0)] * 2 +[(0.,0,0)]*3
         self.footstep_planner = footstep_planner.FootstepPlanner(
             reference,
             self.initial['lfoot']['pos'],
@@ -123,6 +124,11 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         # initialize logger and plots
         self.logger = Logger(self.initial)
         self.logger.initialize_plot(frequency=10)
+        self.logger3 = Logger3(self.initial)
+        self.logger3.initialize_plot(frequency=10)
+        
+        
+        
         
     def customPreStep(self):
         # create current and desired states
@@ -172,10 +178,17 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
         # set acceleration commands
         for i in range(self.params['dof'] - 6):
             self.hrp4.setCommand(i + 6, commands[i])
+            
+        hw = self.current['hw']['val']
+        with open('lip.txt', 'a') as file:
+         file.write(f"{hw[0]} {hw[1]} {hw[2]}\n")
+
 
         # log and plot
         self.logger.log_data(self.current, self.desired)
         self.logger.update_plot(self.time)
+        self.logger3.log_data(self.desired, self.current)
+        self.logger3.update_plot(self.time)
 
         self.time += 1
 
@@ -223,6 +236,12 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
             zmp[0] = np.clip(zmp[0], midpoint[0] - 0.3, midpoint[0] + 0.3)
             zmp[1] = np.clip(zmp[1], midpoint[1] - 0.3, midpoint[1] + 0.3)
             zmp[2] = np.clip(zmp[2], midpoint[2] - 0.3, midpoint[2] + 0.3)
+        hw=np.zeros(3)
+        for body in hrp4.getBodyNodes():
+                w_R_link_i=body.getWorldTransform().rotation()
+                #angular_momentum_at_com+=w_R_link_i@body.getAngularMomentum((-com_position+body.getCOM()))
+                hw+=-w_R_link_i@body.getAngularMomentum(w_R_link_i.T@(com_position-body.getWorldTransform().translation()))
+        print(hw)
 
         # create state dict
         return {
@@ -246,7 +265,8 @@ class Hrp4Controller(dart.gui.osg.RealTimeWorldNode):
                       'acc': np.zeros(self.params['dof'])},
             'zmp'  : {'pos': zmp,
                       'vel': np.zeros(3),
-                      'acc': np.zeros(3)}
+                      'acc': np.zeros(3)},
+            'hw'  : {'val':hw }
         }
 
 if __name__ == "__main__":
