@@ -23,11 +23,13 @@ class centroidal_mpc:
     self.debug = 0
     self.update_contact_flag = 0
     #Change of coordinates Gains
-    self.k1=8# 8-8 for foot step 0.15, rate 1 8-10rate 10
-    self.k2=8
+    
+    self.k1=7# 4-0.1 rate 1// 5-0.1 rate 10 6-1
+    self.k2=1
     if params['mpc_rate'] == 10:
-      self.k1=8#  8-10rate 10
-      self.k2=10
+      self.k1=7
+      self.k2=1
+
     self.mpc_rate = params['mpc_rate']
     self.correction=1
     #(t+self.N-self.correction)
@@ -303,19 +305,19 @@ class centroidal_mpc:
       #constarin on the maximum deviation of the foot pose from the desired position
       #ROTATION MAT MISSING 
     for i in range(self.N):
-     self.opt.subject_to((self.opti_pos_contact_l[0,i+1]-self.opti_pos_contact_l_ref[0,i])*self.opti_contact_left[i]<=0.01 )
-     self.opt.subject_to((self.opti_pos_contact_l[0,i+1]-self.opti_pos_contact_l_ref[0,i])*self.opti_contact_left[i]>=-0.01 )
-     self.opt.subject_to((self.opti_pos_contact_l[1,i+1]-self.opti_pos_contact_l_ref[1,i])*self.opti_contact_left[i]<=0.005 )
-     self.opt.subject_to((self.opti_pos_contact_l[1,i+1]-self.opti_pos_contact_l_ref[1,i])*self.opti_contact_left[i]>=-0.005 )
-    #  self.opt.subject_to((self.opti_pos_contact_l[2,i]-self.opti_pos_contact_l_ref[2,i])*self.opti_contact_left[i]<=0.00005 )
-    #  self.opt.subject_to((self.opti_pos_contact_l[2,i]-self.opti_pos_contact_l_ref[2,i])*self.opti_contact_left[i]>=-0.0005 )
+     self.opt.subject_to((self.opti_pos_contact_l[0,i+1]-self.opti_pos_contact_l_ref[0,i])*self.opti_contact_left[i+1]<=0.01 )
+     self.opt.subject_to((self.opti_pos_contact_l[0,i+1]-self.opti_pos_contact_l_ref[0,i])*self.opti_contact_left[i+1]>=-0.01 )
+     self.opt.subject_to((self.opti_pos_contact_l[1,i+1]-self.opti_pos_contact_l_ref[1,i])*self.opti_contact_left[i+1]<=0.005 )
+     self.opt.subject_to((self.opti_pos_contact_l[1,i+1]-self.opti_pos_contact_l_ref[1,i])*self.opti_contact_left[i+1]>=-0.005 )
+     self.opt.subject_to((self.opti_pos_contact_l[2,i+1]-self.opti_pos_contact_l_ref[2,i])*self.opti_contact_left[i+1]<=0.00005 )
+     self.opt.subject_to((self.opti_pos_contact_l[2,i+1]-self.opti_pos_contact_l_ref[2,i])*self.opti_contact_left[i+1]>=-0.00005 )
 
-     self.opt.subject_to((self.opti_pos_contact_r[0,i+1]-self.opti_pos_contact_r_ref[0,i])*self.opti_contact_right[i]<=0.01 )
-     self.opt.subject_to((self.opti_pos_contact_r[0,i+1]-self.opti_pos_contact_r_ref[0,i])*self.opti_contact_right[i]>=-0.01 )
-     self.opt.subject_to((self.opti_pos_contact_r[1,i+1]-self.opti_pos_contact_r_ref[1,i])*self.opti_contact_right[i]<=0.005 )
-     self.opt.subject_to((self.opti_pos_contact_r[1,i+1]-self.opti_pos_contact_r_ref[1,i])*self.opti_contact_right[i]>=-0.005 )
-    #  self.opt.subject_to((self.opti_pos_contact_r[2,i]-self.opti_pos_contact_r_ref[2,i])*self.opti_contact_right[i]<=0.00005 )
-    #  self.opt.subject_to((self.opti_pos_contact_r[2,i]-self.opti_pos_contact_r_ref[2,i])*self.opti_contact_right[i]>=-0.00005 )
+     self.opt.subject_to((self.opti_pos_contact_r[0,i+1]-self.opti_pos_contact_r_ref[0,i])*self.opti_contact_right[i+1]<=0.01 )
+     self.opt.subject_to((self.opti_pos_contact_r[0,i+1]-self.opti_pos_contact_r_ref[0,i])*self.opti_contact_right[i+1]>=-0.01 )
+     self.opt.subject_to((self.opti_pos_contact_r[1,i+1]-self.opti_pos_contact_r_ref[1,i])*self.opti_contact_right[i+1]<=0.005 )
+     self.opt.subject_to((self.opti_pos_contact_r[1,i+1]-self.opti_pos_contact_r_ref[1,i])*self.opti_contact_right[i+1]>=-0.005 )
+     self.opt.subject_to((self.opti_pos_contact_r[2,i+1]-self.opti_pos_contact_r_ref[2,i])*self.opti_contact_right[i+1]<=0.00005 )
+     self.opt.subject_to((self.opti_pos_contact_r[2,i+1]-self.opti_pos_contact_r_ref[2,i])*self.opti_contact_right[i+1]>=-0.00005 )
 
     
     #To create the term Tu of the paper
@@ -346,7 +348,7 @@ class centroidal_mpc:
     print(f'size of force rate {force_change_rate_v1l.shape}')
 
     weight_com_z = cs.MX.zeros(self.N)
-    weight_com_const  = 10000
+    weight_com_const  = 10000 # 2000 rate 1
     weight_com_z_min = weight_com_const/2
     for  i in range(self.N):
       weight_com_z[i] = (weight_com_const- weight_com_z_min) * cs.exp(-i) + weight_com_z_min
@@ -381,7 +383,10 @@ class centroidal_mpc:
               10*cs.sumsqr(self.opti_v4r_force[:,i])*(1-self.opti_contact_right[i]) + \
               0*cs.sumsqr(self.Vl_mat[2,i]-self.g)*self.opti_contact_left[i] + \
               0*cs.sumsqr(self.Vr_mat[2,i]-self.g)*self.opti_contact_right[i] 
-    weight_f_rate =1
+    
+    weight_f_rate = 1
+    if self.mpc_rate== 10:
+      weight_f_rate =1
 
     for i in range(self.N-1):
         cost += weight_f_rate*cs.sumsqr(force_change_rate_v1l[2,i])*self.opti_contact_left[i] + \
@@ -562,8 +567,8 @@ class centroidal_mpc:
     self.current_state[17:20] = contact_right_current
 
     self.opt.set_value(self.opti_x0_param, self.current_state)
-    # print(f'Current_Pos_contact_left:{self.current_state[15:18]}')
-    # print(f'Current_Pos_contact_right:{self.current_state[21:24]}')
+    print(f'Current_Pos_foot_left:{self.current_state[12:16]}')
+    print(f'Current_Pos_foot_right:{self.current_state[16:20]}')
    # UPDATE  the contact status L/R over N
     contact_status_l=np.empty((0, 1))
     contact_status_r=np.empty((0, 1))
@@ -598,7 +603,7 @@ class centroidal_mpc:
 
 
     #An: Update CoM_ref value for every step t and in an entire horizon N=100
-    idx=0
+    idx=1
     pos_com_ref_x= cs.DM.zeros(self.N)
     pos_com_ref_y= cs.DM.zeros(self.N)
     pos_com_ref_z= cs.DM.zeros(self.N)
@@ -662,57 +667,30 @@ class centroidal_mpc:
       sol = self.opt.solve()
     
     except RuntimeError as e:
-        print("Errore nell'ottimizzazione:", e)
-        # Iniziamo a stampare le variabili fondamentali
-        print("\n=== VALORI FINALI DELLE VARIABILI NEL PROBLEMA ===")
-        # print("Stato (opti_state):")
-        # print(self.opt.debug.value(self.opti_state))
+        # print("Ottimization error:", e)
+        # # Mostra le constraint non soddisfatte:
+        # print("Last candidate solution:", e)
+        # print(f'      self.opti_CoM   = [0,2]\n'
+        #       f'      self.opti_dCoM  = [3,5]\n'
+        #       f'      self.opti_hw    = [6,8]\n'
+        #       f'      self.opti_thetahat  = [9,11]\n'
+        #       f'      self.opti_ang_contact_l = [12,14]\n'
+        #       f'      self.opti_ang_contact_r = [15,17]\n'
+        #       f'      self.opti_pos_contact_l = [18,20]\n'
+        #       f'      self.opti_pos_contact_r = [21,23]\n')
+        
+        # print("===== Elenco Constraints =====")
 
-        # print("\nForze sul piede sinistro (v1, v2, v3, v4):")
-        # print(f'v1l:{self.opt.debug.value(self.opti_v1l_force)}')
-        # print(f'v2l:{self.opt.debug.value(self.opti_v2l_force)}')
-        # print(f'v3l:{self.opt.debug.value(self.opti_v3l_force)}')
-        # print(f'v4l:{self.opt.debug.value(self.opti_v4l_force)}')
-
-        # print("\nForze sul piede destro (v1, v2, v3, v4):")
-        # print(f'v1r:{self.opt.debug.value(self.opti_v1r_force)}')
-        # print(f'v2r:{self.opt.debug.value(self.opti_v2r_force)}')
-        # print(f'v3r:{self.opt.debug.value(self.opti_v3r_force)}')
-        # print(f'v4r:{self.opt.debug.value(self.opti_v4r_force)}')
-
-        # print("\nPosizioni di contatto (left / right):")
-        # print("opti_pos_contact_l:", self.opt.debug.value(self.opti_pos_contact_l))
-        # print("opti_pos_contact_r:", self.opt.debug.value(self.opti_pos_contact_r))
-
-        # print("\nOrientazioni di contatto (left / right):")
-        # print("opti_ang_contact_l:", self.opt.debug.value(self.opti_ang_contact_l))
-        # print("opti_ang_contact_r:", self.opt.debug.value(self.opti_ang_contact_r))
-
-        # # Se hai dei parametri/variabili extra, come z1, z2, forze totali, ecc., stampali pure
-        # print("\nz1_mat:")
-        # print(self.opt.debug.value(self.z1_mat))
-        # print("z2_mat:")
-        # print(self.opt.debug.value(self.z2_mat))
-        # print("\nu_n_mat:")
-        # print(self.opt.debug.value(self.u_n_mat))
-        # print("\nVl_mat:")
-        # print(self.opt.debug.value(self.Vl_mat))
-        # print("Vr_mat:")
-        # print(self.opt.debug.value(self.Vr_mat))
-
-        # # Se hai parametri tipo contatto_left/right, reference, ecc., puoi stamparli:
-        # print("\nContact_left (param):")
-        # print(self.opt.debug.value(self.opti_contact_left))
-        # print("Contact_right (param):")
-        # print(self.opt.debug.value(self.opti_contact_right))
-
-        # print("\nCoM_ref (param):")
-        # print(self.opt.debug.value(self.opti_com_ref))
-
-        # Se vuoi puoi aggiungere ulteriori stampe per parametri, cost function, ...
-        #print("\n==================================================\n")
-        # Poi eventualmente puoi fare altre operazioni di debug o raise
-        # raise e   # se vuoi che l'eccezione risalga comunque
+        # print("0..23 (24 eq) -> Stato iniziale")
+        # print(f"24..{24+24*self.N-1} (24*N eq) -> Vincoli di dinamica")
+        # print(f"{24+24*self.N}..{24+25*self.N-1} (N ineq) -> Lyapunov constraint")
+        # print(f"{24+25*self.N}..{24+26*self.N-1} (N ineq) -> Momento angolare ")
+        # print(f"{24+26*self.N}..{24+27*self.N-1} (N ineq) -> CoM z <= 0.76")
+        # print(f"{24+27*self.N}..{24+27*self.N+32*self.N-1} (32*N ineq) -> Coni di attrito")
+        # print(f"{24+27*self.N+32*self.N}..{24+27*self.N+32*self.N+8*self.N-1} (8*N ineq) -> Forza normale >= 0")
+        # print(f"{24+27*self.N+32*self.N+8*self.N}..{24+27*self.N+32*self.N+8*self.N+24*self.N-1} (24*N ineq) -> Pos/orient foot")
+        self.opt.debug.show_infeasibilities(1e-6)
+        self.opt.debug.value()
 
 
     self.x = sol.value(self.opti_state[:,1]) #desired state at the next time
@@ -805,9 +783,12 @@ class centroidal_mpc:
     print(f'Theta_hat:{self.x[9:12]}')
 
     #An: Need to add here the output of mpc for contact pos -> update them to the footstep planner list
-    if self.params['update_contact']=='YES' :
+    if self.params['update_contact']=='YES':
+      update_step = 1
+      if self.mpc_rate==10:
+        update_step = 1
       contact_phase_current= self.footstep_planner.get_phase_at_time(t)
-      contact_phase_next_after_the_horizon= self.footstep_planner.get_phase_at_time(t+self.N*self.mpc_rate-1)
+      contact_phase_next_after_the_horizon= self.footstep_planner.get_phase_at_time(t+self.N*self.mpc_rate-update_step)
       if contact_phase_current=='ss' and contact_phase_next_after_the_horizon=='ds' and self.update_contact_flag== 0:
       #Update new contact position at this specific moment
         print("Time to update contact list")
