@@ -25,6 +25,6 @@ pip install dartpy casadi scipy matplotlib osqp
 
 ## Run the simulation
 ```
-python3 project/simulation.py
+python3 code/simulation.py
 ```
 then press spacebar to start it
