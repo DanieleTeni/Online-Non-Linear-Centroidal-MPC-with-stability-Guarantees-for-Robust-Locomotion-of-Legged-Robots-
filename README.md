@@ -1,13 +1,11 @@
 # Online-Non-Linear-Centroidal-MPC-with-stability-Guarantees-for-Robust-Locomotion-of-Legged-Robots-
 AMR project
 
-Simulate a locomotion on a flat surface using an MPC controller 
-The project should implement mpc controller as suggested in the paper
-
-Adaptive Non-linear Centroidal MPC with Stability Guarantees for Robust Locomotion of Legged Robots
-Mohamed Elobaid, Giulio Turrisi, Lorenzo Rapetti, Giulio Romualdi, Stefano Dafarra, Tomohiro Kawakami, Tomohiro Chaki, Takahide Yoshiike, Claudio Semini, Daniele Pucci
+Simulate a locomotion on a flat surface using the MPC controller of the paper :
 
 🔗 [Adaptive Non-linear Centroidal MPC with Stability Guarantees for Robust Locomotion of Legged Robots](https://arxiv.org/abs/2409.01144)
+Mohamed Elobaid, Giulio Turrisi, Lorenzo Rapetti, Giulio Romualdi, Stefano Dafarra, Tomohiro Kawakami, Tomohiro Chaki, Takahide Yoshiike, Claudio Semini, Daniele Pucci
+
 
 
 ## 🔧 Setup & Requirements
