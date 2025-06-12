@@ -26,6 +26,11 @@ it might requred numpy==1.26.0
 
 ## Run the simulation
 ```
-python3 project/simulation.py
+python3 simulation.py
 ```
+or 
+```
+python3 simulation_payload.py
+```
+
 then press spacebar to start it
