@@ -1,23 +1,13 @@
 import numpy as np
 from utils import *
 
-        # unicyle_reference = [(0.1, 0., 0.2)] * 5 + [(0.1, 0., -0.1)] * 10 + [(0.1, 0., 0.)] * 10   #[dot{x},dot{y},dot{theta}]
-        # self.footstep_planner = footstep_planner.FootstepPlanner(
-        #    referunicyle_referenceence,
-        #    self.initial['lfoot']['pos'],#pose of the lfoot
-        #    self.initial['rfoot']['pos'],#pose of the rfoot
-        #    self.params
-        #    )
-
-        #'lfoot': {'pos': left_foot_pose,        #left_foot_pose = np.hstack((l_foot_orientation, l_foot_position))
-        #  'vel': l_foot_spatial_velocity,
-        #  'acc': np.zeros(6)},
+       
 
 class FootstepPlanner:
     def __init__(self, vref, initial_lfoot, initial_rfoot, params):
         
         debug=0
-        ############################ debug
+       
 
         default_ss_duration = params['ss_duration']  #70
         default_ds_duration = params['ds_duration']  #30
@@ -88,7 +78,7 @@ class FootstepPlanner:
             print(f'len(self.position_contacts_ref):[{len(self.position_contacts_ref["contact_left"])};{len(self.position_contacts_ref["contact_right"])}]')
             print(f'\t *****End tFootstep_planner_debug*****\n')
 
-    #An: get the number of step           
+    #get the number of step           
     def get_step_index_at_time(self, time):
         t = 0
         for i in range(len(self.plan)):
@@ -96,7 +86,7 @@ class FootstepPlanner:
             if t > time: return i
         return None
     
-    #An: get the start time of the step i
+    #get the start time of the step i
     def get_start_time(self, step_index):
         t = 0
         for i in range(step_index):
@@ -155,17 +145,5 @@ class FootstepPlanner:
             'contact_left': np.array(pose_left),   # [ang, pos] for left foot
             'contact_right': np.array(pose_right)  # [ang, pos] for right foot
         }
-        #:return: Dictionary with foot poses (orientation + position) over time
-        #{'contact_left': array([[ang->rotation vector, Position], [ang, 1.03109240e-17,  1.00000000e-01,  0.00000000e+00], position of the left foot
-        #'contact_right': array([[ang->rotation vector, Position], [ang, 1.03109240e-17, -1.00000000e-01,  0.00000000e+00], position of the right foot
-
-        
-
-        #This code sets two important things:
-        # self.plan
-        # is the Dictionrie of points at each control time. We have len(vref)=len(self.plan) so 25 points 
-
-
-        # self.position_contacts_ref
-        # Dictionarie containing all the position for every instance of time getting 2500 items both for left and rights foot
+      
         

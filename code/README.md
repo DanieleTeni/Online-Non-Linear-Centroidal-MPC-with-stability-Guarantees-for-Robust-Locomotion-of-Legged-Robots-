@@ -1,24 +1,31 @@
-# Description
-This is IS-MPC, a framework for humanoid gait generation.
+# Online-Non-Linear-Centroidal-MPC-with-stability-Guarantees-for-Robust-Locomotion-of-Legged-Robots-
+AMR project
 
-The main reference is:<br />
-[N. Scianca, D. De Simone, L. Lanari, G. Oriolo, "MPC for Humanoid Gait Generation: Stability and Feasibility"](https://ieeexplore.ieee.org/document/8955951)<br />
-*Transactions on Robotics*, 2020
+Simulate a locomotion on a flat surface using the MPC controller of the paper :
 
-The extension available in this repository uses the 3D LIP and can also generate vertical motions. Main reference:<br />
-[M. Cipriano, P. Ferrari, N. Scianca, L. Lanari, G. Oriolo, "Humanoid motion generation in a world of stairs"](https://www.sciencedirect.com/science/article/pii/S0921889023001343)<br />
-*Robotics and Autonomous Systems*, 2023
+🔗 [Adaptive Non-linear Centroidal MPC with Stability Guarantees for Robust Locomotion of Legged Robots](https://arxiv.org/abs/2409.01144)
+Mohamed Elobaid, Giulio Turrisi, Lorenzo Rapetti, Giulio Romualdi, Stefano Dafarra, Tomohiro Kawakami, Tomohiro Chaki, Takahide Yoshiike, Claudio Semini, Daniele Pucci
 
 
-# Setup
-You need a Python installation and some dependencis. If using pip, you can run the following
-```
+
+## 🔧 Setup & Requirements
+
+You need Python (preferably 3.11 or 3.12) and the following dependencies:
+
+Many packages are shared with this repo:  
+🔗 [https://github.com/DIAG-Robotics-Lab/ismpc](https://github.com/DIAG-Robotics-Lab/ismpc/blob/main/README.md)
+
+
+### Install using pip
+
+```bash
 pip install dartpy casadi scipy matplotlib osqp
-```
-You need dartpy 0.2, if pip does not allow you to install this version on your system, you probably need to upgrade to Python 3.12 or use conda
 
-To run the simulation
 ```
-python simulation.py
+it might requred numpy==1.26.0 
+
+## Run the simulation
+```
+python3 project/simulation.py
 ```
 then press spacebar to start it

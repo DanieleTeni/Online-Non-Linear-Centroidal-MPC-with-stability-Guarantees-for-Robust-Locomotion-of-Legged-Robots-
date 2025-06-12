@@ -32,31 +32,24 @@ def compute_knot(foot_tra,planner):
         sequence_y.append(first_time_knot)
         first_contact_time=first_time_knot+ss_duration+1
         
-        for i in range(first_time_knot,(len(planner.plan)-1)*scale):
+        for i in range(first_time_knot,(len(planner.plan))*scale-1):
          if (i-first_contact_time)%scale==0 :
           knot_x.append((foot_tra.generate_feet_trajectories_at_time(i)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(i)['rfoot']['pos'][3])/2)
           sequence_x.append(i)
 
-          # idx_x=planner.get_step_index_at_time(i)
-          # contact=planner.plan[idx_x+1]['foot_id']
-          # sequence_x.append(i+30)
+       
           idx_y=planner.get_step_index_at_time(i)
           print(i)
           print("step id")
           print(idx_y)
           contact=planner.plan[idx_y+1]['foot_id']
-          # knot_y.append(foot_tra.generate_feet_trajectories_at_time(i)[contact]['pos'][4]*0.5)
-          # sequence_y.append(i)
-          knot_y.append(foot_tra.generate_feet_trajectories_at_time(i)[contact]['pos'][4]*0.6)
-          # knot_y.append((foot_tra.generate_feet_trajectories_at_time(i)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(i)['rfoot']['pos'][4])/2)
-          # sequence_y.append(i)
-          sequence_y.append(i+ds_duration)
           
-        t=(len(planner.plan)-1)*scale
-        knot_x.append((foot_tra.generate_feet_trajectories_at_time(t)['lfoot']['pos'][3]+foot_tra.generate_feet_trajectories_at_time(t)['rfoot']['pos'][3])/2)
-        knot_y.append((foot_tra.generate_feet_trajectories_at_time(t)['lfoot']['pos'][4]+foot_tra.generate_feet_trajectories_at_time(t)['rfoot']['pos'][4])/2)
-        sequence_x.append(t)
-        sequence_y.append(t)
+          knot_y.append(foot_tra.generate_feet_trajectories_at_time(i)[contact]['pos'][4]*0.6)
+          
+          sequence_y.append(i+ds_duration-1)
+          
+        t=(len(planner.plan))*scale-1
+       
         plot_spline(knot_x)
         plot_spline(knot_y)
         return knot_x,knot_y,sequence_x,sequence_y
@@ -68,33 +61,45 @@ def references(foot_tra,planner,SHOW_PLOT=1):
          co_x = np.array(co_x.full()) 
          co_y = quintic_spline(knot_y)  # Get optimal coefficients from solver
          co_y = np.array(co_y.full())
+         
+         print(f'len(knot_x): {len(knot_x)}')
+         print(f'len(knot_y): {len(knot_y)}')#for i,num in enumerate(self.sequence) :
+            #print(ref[num])
+          
+          
       
+         print(f'knot_x: {knot_x}')
+         print(f'knot_y: {knot_y}')
+         print(f'len(sequence_x): {(sequence_x)}')
+         print(f'len(sequence_y): {(sequence_y)}')
         #plot_spline(self.knot_x)
         #plot_spline(self.knot_y)
-         ref_pos_x=built_the_reference(knot_x,sequence_x,co_x)
+         ref_pos_x=built_the_reference(sequence_x,co_x)
         #for i,num in enumerate(self.sequence) :
             #print(ref[num])
             #print(self.knot_x[i])
         #print(ref[2300:2400])
          ref_pos_x = np.concatenate(ref_pos_x).tolist()
-         ref_vel_x=built_the_velocity(knot_x,sequence_x,co_x)
+         ref_vel_x=built_the_velocity(sequence_x,co_x)
          ref_vel_x = np.concatenate(ref_vel_x).tolist()
-         ref_acc_x=built_the_acceleration(knot_x,sequence_x,co_x)
+         ref_acc_x=built_the_acceleration(sequence_x,co_x)
          ref_acc_x = np.concatenate(ref_acc_x).tolist()
          
 
-         ref_pos_y=built_the_reference(knot_y,sequence_y,co_y)
+         ref_pos_y=built_the_reference(sequence_y,co_y)
          ref_pos_y = np.concatenate(ref_pos_y).tolist()
-         ref_vel_y=built_the_velocity(knot_y,sequence_y,co_y)
+         ref_vel_y=built_the_velocity(sequence_y,co_y)
          ref_vel_y = np.concatenate(ref_vel_y).tolist()
          
-         ref_acc_y=built_the_acceleration(knot_y,sequence_y,co_y)
+         ref_acc_y=built_the_acceleration(sequence_y,co_y)
          ref_acc_y = np.concatenate(ref_acc_y).tolist()
 
-         ref_pos_z = np.full(len(ref_pos_x),0.7)
+         ref_pos_z = np.full(len(ref_pos_x),0.72)
          ref_vel_z = np.zeros(len(ref_pos_x))
          ref_acc_z = np.zeros(len(ref_pos_x))
-
+        
+         print(f'len(ref_pos_x): {len(ref_pos_x)}')
+         print(f'len(ref_pos_y): {len(ref_pos_y)}')
 
          if SHOW_PLOT == 0 :
            easy_plot(ref_pos_x,"ref_pos_x")
@@ -103,7 +108,7 @@ def references(foot_tra,planner,SHOW_PLOT=1):
            easy_plot(ref_pos_y,"ref_plot_y")
            easy_plot(ref_vel_y,"ref_vel_y_y")
            easy_plot(ref_acc_y,"ref_acc_y")
-           #easy_plot_2d(ref_pos_x, ref_pos_y)
+           #easy_plot_2d(ref_pos_x, ref_pos_y, title="Trajectory")
          ref = {
                   "pos_x": ref_pos_x,
                    "vel_x": ref_vel_x,
@@ -139,9 +144,9 @@ def quintic_spline(x):
 
 
         c.append(2*p[2] )      ##acc initial and final constrain
-        c.append(2*p[6*(n-1)+2])
+        #c.append(2*p[6*(n-1)+2])
         for i in range (0,n-1):
-            c.append(2*p[6*i+2]+6*p[6*i+3]+12*p[6*i+4]+20*p[6*i+5]-2*p[6*(i+1)+2])       ##acceleratino constrain for continuity
+            c.append(2*p[6*i+2]+6*p[6*i+3]+12*p[6*i+4]+20*p[6*i+5]-2*p[6*(i+1)+2])       ##acceleration constrain for continuity
 
 
         contrain_eq=cs.vertcat(*c)
@@ -188,7 +193,7 @@ def plot_spline(knot):
 
 
 
-def built_the_reference(knot,sequence,p_coeff):
+def built_the_reference(sequence,p_coeff):
       # p_coeff = quintic_spline(knot)  # Get optimal coefficients from solver
       # p_coeff = np.array(p_coeff.full()) 
       reference=[]
@@ -204,7 +209,7 @@ def built_the_reference(knot,sequence,p_coeff):
       return reference
 
 
-def built_the_velocity(knot,sequence,p_coeff):
+def built_the_velocity(sequence,p_coeff):
       # p_coeff = quintic_spline(knot)  # Get optimal coefficients from solver
       # p_coeff = np.array(p_coeff.full()) 
 
@@ -222,13 +227,12 @@ def built_the_velocity(knot,sequence,p_coeff):
       return reference
 
 
-def built_the_acceleration(knot,sequence,p_coeff):
+def built_the_acceleration(sequence,p_coeff):
       # p_coeff = quintic_spline(knot)  # Get optimal coefficients from solver
       # p_coeff = np.array(p_coeff.full()) 
       # print(sequence)
       # T=np.sum(sequence)
-      # print(T)
-      # print('iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii')
+     
       reference=[]
       tick=0
       for i,intervall in enumerate(sequence) :
@@ -266,7 +270,7 @@ def easy_plot_2d(y1, y2, title="Trajectory"):
     plt.show()
 
 
-def compoute_corner(foot_position, foot_orientation, foot_length=0.27, foot_width=0.15):
+def compute_corner(foot_position, foot_orientation, foot_length=0.27, foot_width=0.15):
     theta = foot_orientation[2] 
     
     half_length = foot_length / 2

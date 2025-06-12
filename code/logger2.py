@@ -1,106 +1,277 @@
 import numpy as np
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 class Logger2():
-    def __init__(self, initial):
+    def __init__(self, initial, footstep_planner):
+        """
+        Initializes the Logger2 class.
+        Stores data logs and references the footstep planner.
+        :param initial: dict con alcuni valori iniziali (ad esempio 'com', 'hw', ecc.)
+        :param footstep_planner: oggetto che contiene plan dei passi
+        """
         self.log = {}
+        self.footstep_planner = footstep_planner  # Store reference to footstep planner
+
         for item in initial.keys():
             for level in initial[item].keys():
                 self.log['real', item, level] = []
 
-    def log_data(self, corner_l, corner_r,current):
-        for item in corner_l:
-                self.log['real', 'corner_left', item].append(corner_l[item])
-        for item in corner_r:
-                self.log['real', 'corner_right', item].append(corner_r[item])
+       
+        self.current_foot_rects = []
+        self.current_foot_MPC = []
+
+    def initialize_plot(self, frequency=1):
+        """
+        Initializes the plot for visualization.
+        """
+        self.frequency = frequency
+
+        self.fig, self.ax = plt.subplots(figsize=(8, 6))
+        self.ax.set_xlabel('X [m]')
+        self.ax.set_ylabel('Y [m]')
+        self.ax.set_title('Footstep trajectoryPlanner')
+
+        self.ax.set_xlim(-0.5, 4.5)
+        self.ax.set_ylim(-1.5, 1.5)
+
+        self.draw_footsteps()
+
+       
+        dummy_footstep = patches.Patch(
+            facecolor='lightgreen', edgecolor='black', alpha=0.5,
+            label='Planned footstep trajectories'
+        )
+        dummy_real_pos_fix = patches.Patch(
+            facecolor='purple', edgecolor='black', alpha=0.3,
+            label='real feet pose'
+        )
+        dummy_MPC_pos = patches.Patch(
+            facecolor='red', edgecolor='blue', alpha=0.5,
+            label='Desired feet pose by MPC'
+        )
+        dummy_real_pos = patches.Patch(
+            facecolor='purple', edgecolor='purple', alpha=0.4,
+            label='Actual feet pose'
+        )
+        self.ax.legend(handles=[dummy_footstep,dummy_real_pos_fix,dummy_MPC_pos])
+        
+        plt.ion()
+        plt.show()
+
+    def log_data(self, current, mpc_desired_feet, actual_feet_pose):
+        """
+        Logs the data per l'attuale istante.
+        - current: current state (es. CoM, hw, ecc.)
+        - mpc_desired_feet: dictionary with mpc desired foot pose 
+        - actual_feet_pose: dictionarry with foot pose:
+             {
+                'lfoot': {'ang': <3x1>, 'pos': <3x1>},
+                'rfoot': {'ang': <3x1>, 'pos': <3x1>}
+             }
+        """
+
+      
         for item in current.keys():
             for level in current[item].keys():
                 self.log['real', item, level].append(current[item][level])
 
-    def initialize_plot(self, frequency=1):
-        self.frequency = frequency
-        self.plot_info = [
-            {'axis': 0, 'batch': 'real', 'item': 'corner_left', 'level': 'up_right', 'color': 'blue', 'style': 'o'},  
-            {'axis': 0, 'batch': 'real', 'item': 'corner_left', 'level': 'up_left', 'color': 'red', 'style': 'o'},
-            {'axis': 0, 'batch': 'real', 'item': 'corner_left', 'level': 'down_left', 'color': 'green', 'style': 'o'},
-            {'axis': 0, 'batch': 'real', 'item': 'corner_left', 'level': 'down_right', 'color': 'purple', 'style': 'o'},
-            {'axis': 0, 'batch': 'real', 'item': 'corner_right', 'level': 'up_left', 'color': 'cyan', 'style': 'o'},
-            {'axis': 0, 'batch': 'real', 'item': 'corner_right', 'level': 'up_right', 'color': 'magenta', 'style': 'o'},
-            {'axis': 0, 'batch': 'real', 'item': 'corner_right', 'level': 'down_left', 'color': 'yellow', 'style': 'o'},
-            {'axis': 0, 'batch': 'real', 'item': 'corner_right', 'level': 'down_right', 'color': 'black', 'style': 'o'},
-            {'axis': 0, 'batch': 'real', 'item': 'com', 'level': 'pos', 'color': 'blue', 'style': 'o'}
-        ]
-        
-        self.fig, self.ax = plt.subplots(figsize=(8, 6))
-        self.ax.set_xlabel(' X')
-        self.ax.set_ylabel('Y')
-        self.ax.set_title('foot Corner')
+        if ('real', 'lfoot', 'ang') not in self.log:
+          
+            self.log['real', 'lfoot', 'ang'] = []
+            self.log['real', 'lfoot', 'pos'] = []
+            self.log['real', 'rfoot', 'ang'] = []
+            self.log['real', 'rfoot', 'pos'] = []
 
-        self.lines = {}
-        for item in self.plot_info:
-             key = item['batch'], item['item'], item['level']
-             self.lines[key], = self.ax.plot([], [], color=item['color'], linestyle='None', marker=item['style'], markersize=8)
-             if key[1] == 'com' :
-               self.lines[key], = self.ax.plot([], [], color=item['color'], linestyle='None', marker=item['style'], markersize=3)
-   
+        self.log['real', 'lfoot', 'ang'].append(actual_feet_pose['lfoot']['ang'])
+        self.log['real', 'lfoot', 'pos'].append(actual_feet_pose['lfoot']['pos'])
 
-        self.ax.set_xlim(-0.5, 1.5)
-        self.ax.set_ylim(-1, 1)
+        self.log['real', 'rfoot', 'ang'].append(actual_feet_pose['rfoot']['ang'])
+        self.log['real', 'rfoot', 'pos'].append(actual_feet_pose['rfoot']['pos'])
 
-        plt.ion()
-        plt.show()
+        self.mpc_desired_feet = mpc_desired_feet
+
+       
+        self.actual_feet_pose = actual_feet_pose
 
     def update_plot(self, time):
-      if time % self.frequency != 0:
-        return
+        """
+        Updates the plot with new footstep and CoM data.
+        """
+        if time % self.frequency != 0:
+            return
 
-      corner_left_x = []
-      corner_left_y = []
-      corner_right_x = []
-      corner_right_y = []
-      com_x = []
-      com_y = []
+      
+        self.ax.relim()
+        self.ax.autoscale_view()
 
-      for item in self.plot_info:
-          trajectory_key = item['batch'], item['item'], item['level']
 
-          if item['item'] == 'corner_left':
-              data = self.log['real', 'corner_left', item['level']]
-              if len(data) > 0:
-                  last_point = data[-1]
-                  if last_point[2] < 0:
-                      corner_left_x.append(last_point[0])
-                      corner_left_y.append(last_point[1])
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
 
-          elif item['item'] == 'corner_right':
-              data = self.log['real', 'corner_right', item['level']]
-              if len(data) > 0:
-                  last_point = data[-1]
-                  if last_point[2] <= 0.01:
-                      corner_right_x.append(last_point[0])
-                      corner_right_y.append(last_point[1])
+    def draw_footsteps(self):
+        """
+        Draws planned footstep locations as green transparent rectangles.
+        (chiamata una sola volta in initialize_plot)
+        """
+        for step in self.footstep_planner.plan:
+            pos = step['pos'] 
+            ang = step['ang']  
+            foot_id = step['foot_id'] 
 
-          elif item['item'] == 'com':  
-              data = self.log['real', 'com', item['level']]
-              if len(data) > 0:
-                  com_x = [point[0] for point in data]  
-                  com_y = [point[1] for point in data] 
+            foot_length = 0.25
+            foot_width = 0.13
 
-   
-      for item in self.plot_info:
-          trajectory_key = item['batch'], item['item'], item['level']
-          if item['item'] == 'corner_left':
-              self.lines[trajectory_key].set_data(corner_left_x, corner_left_y)
-          elif item['item'] == 'corner_right':
-              self.lines[trajectory_key].set_data(corner_right_x, corner_right_y)
+            angle_deg = np.degrees(ang)
+
+            lower_left_x = pos[0] - foot_length / 2
+            lower_left_y = pos[1] - foot_width / 2
+
+            
+            rect = patches.Rectangle(
+                (lower_left_x, lower_left_y),
+                foot_length,
+                foot_width,
+                angle=angle_deg[2],  # ang = [roll, pitch, yaw]
+                color='lightgreen',
+                alpha=0.5,
+                linewidth=1,
+                edgecolor='black'
+            )
+            self.ax.add_patch(rect)
+
+
+    def draw_current_feet(self,actual_feet_pose):
+        """
+        Draws the real-time foot positions as red transparent rectangles.
+        
+        """
+        if not hasattr(self, 'actual_feet_pose'):
+            return  
+
+        
+        for rect in self.current_foot_rects:
+            rect.remove()
+        self.current_foot_rects = []
 
     
-      if com_x and com_y:
-          trajectory_key = ('real', 'com', 'pos')  
-          self.lines[trajectory_key].set_data(com_x, com_y)  
+        pos = actual_feet_pose['pos'][3:6]
+        ang = actual_feet_pose['pos'][0:3]
 
-    
-      self.ax.relim()
-      self.ax.autoscale_view() 
-      self.fig.canvas.draw()
-      self.fig.canvas.flush_events()
+        angle_deg = np.degrees(ang)
+
+        foot_length = 0.25
+        foot_width = 0.13
+
+        lower_left_x = pos[0] - foot_length / 2
+        lower_left_y = pos[1] - foot_width / 2
+
+        actual_rect = patches.Rectangle(
+                (lower_left_x, lower_left_y),
+                foot_length,
+                foot_width,
+                angle=angle_deg[2],
+                color='purple',
+                alpha=0.2,
+                linewidth=1,
+                edgecolor='black'
+            )
+        self.ax.add_patch(actual_rect)
+        #self.current_foot_rects.append(actual_rect)
+
+
+
+    def draw_mpc_feet(self):
+        """
+        Draws the MPC-predicted foot positions as light blue rectangles.
+        
+        """
+        if not hasattr(self, 'mpc_desired_feet'):
+            print(f'Logger2, draw_mpc_feet: no data yet')
+            return
+
+      
+        for rect in self.current_foot_MPC:
+            rect.remove()
+        self.current_foot_MPC = []
+
+        for foot in ['lfoot', 'rfoot']:
+            pos = self.mpc_desired_feet[foot]['pos']
+            ang = self.mpc_desired_feet[foot]['ang']
+
+            angle_deg = np.degrees(ang)
+            print(f'Logger2, draw_mpc_feet -> {foot}: pos={pos}, ang(deg)={angle_deg}')
+
+            foot_length = 0.25
+            foot_width = 0.13
+
+            lower_left_x = pos[0] - foot_length / 2
+            lower_left_y = pos[1] - foot_width / 2
+
+            MPC_rect = patches.Rectangle(
+                (lower_left_x, lower_left_y),
+                foot_length,
+                foot_width,
+                angle=angle_deg[2],
+                color='lightblue',
+                alpha=0.5,
+                linewidth=1,
+                edgecolor='blue'
+            )
+            self.ax.add_patch(MPC_rect)
+            self.current_foot_MPC.append(MPC_rect)
+
+
+
+    def draw_desired_swing_foot_position(self, next_des_contac):
+        """
+       
+        next_des_contac = [roll, pitch, yaw, x, y, z]
+        """
+        pos = next_des_contac[3:6]
+        ang = next_des_contac[0:3]
+
+        foot_length = 0.25
+        foot_width = 0.13
+
+        lower_left_x = pos[0] - foot_length / 2
+        lower_left_y = pos[1] - foot_width / 2
+
+        angle_deg = np.degrees(ang)
+
+        rect = patches.Rectangle(
+            (lower_left_x, lower_left_y),
+            foot_length,
+            foot_width,
+            angle=angle_deg[2],
+            color='red',
+            alpha=0.3,
+            linewidth=1,
+            edgecolor='black'
+        )
+        self.ax.add_patch(rect)
+
+
+    def draw_mpc_feet_at_update_time(self,next_des_contac_MPC_at_update_time):
+        pos = next_des_contac_MPC_at_update_time[3:6]
+        ang = next_des_contac_MPC_at_update_time[0:3]
+
+        foot_length = 0.25
+        foot_width = 0.13
+
+        lower_left_x = pos[0] - foot_length / 2
+        lower_left_y = pos[1] - foot_width / 2
+
+        angle_deg = np.degrees(ang)
+
+        rect = patches.Rectangle(
+            (lower_left_x, lower_left_y),
+            foot_length,
+            foot_width,
+            angle=angle_deg[2],
+            color='lightblue',
+            alpha=0.5,
+            linewidth=1,
+            edgecolor='blue'
+        )
+        self.ax.add_patch(rect)

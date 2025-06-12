@@ -38,6 +38,10 @@ class Logger_theta():
             self.lines[key], = self.ax[item['axis']].plot([], [], color=item['color'], linestyle=item['style'])
         for ax in self.ax:
          ax.legend()
+        self.ax[0].set_ylabel('[N]')
+        self.ax[1].set_ylabel('[N]')
+        self.ax[2].set_ylabel('[N]')
+        self.ax[2].set_xlabel('time step')
         
         plt.ion()
         plt.show()
